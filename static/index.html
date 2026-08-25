@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KicksVault India — AI Agentic Commerce · Razorpay Buildathon</title>
+  <meta name="description" content="KicksVault India: Luxury sneaker exchange powered by autonomous AI negotiation and Razorpay payment rails."/>
+  <link rel="stylesheet" href="/static/style.css"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] } } }
+    }
+  </script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body>
+
+<!-- ============================================================
+     FLOATING GLOBAL NAVIGATION
+     ============================================================ -->
+<nav id="global-nav">
+
+  <!-- Brand -->
+  <div class="nav-brand">
+    <div class="brand-icon">
+      <i data-lucide="zap" style="width:18px;height:18px;color:#fff"></i>
+    </div>
+    <div>
+      <div class="brand-name">KicksVault</div>
+      <div class="razorpay-badge">
+        <span class="pulse"></span>
+        Razorpay Sandbox Active
+      </div>
+    </div>
+  </div>
+
+  <!-- Nav tabs -->
+  <div class="nav-tabs">
+    <button class="nav-btn active" data-target="page-storefront" id="tab-storefront">
+      <i data-lucide="shopping-bag" style="width:13px;height:13px"></i>
+      <span>Storefront</span>
+    </button>
+    <button class="nav-btn" data-target="page-chat" id="tab-chat">
+      <i data-lucide="message-circle" style="width:13px;height:13px"></i>
+      <span>AI Concierge</span>
+    </button>
+    <button class="nav-btn" data-target="page-story" id="tab-story">
+      <i data-lucide="book-open" style="width:13px;height:13px"></i>
+      <span>Brand Story</span>
+    </button>
+    <button class="nav-btn" data-target="page-roadmap" id="tab-roadmap">
+      <i data-lucide="rocket" style="width:13px;height:13px"></i>
+      <span>Roadmap</span>
+    </button>
+    <button class="nav-btn" data-target="page-merchant" id="tab-merchant">
+      <i data-lucide="cpu" style="width:13px;height:13px"></i>
+      <span>Merchant HUD</span>
+    </button>
+  </div>
+
+  <!-- Right -->
+  <div class="nav-right">
+    <div class="live-clock" id="live-clock">00:00:00</div>
+    <div class="pill pill-indigo" id="session-pill" style="display:none;font-size:9px">
+      <span class="pulse"></span>
+      <span id="session-short">—</span>
+    </div>
+    <button class="btn-reset" id="btn-reset">
+      <i data-lucide="refresh-cw" style="width:11px;height:11px"></i>
+      Reset
+    </button>
+  </div>
+
+</nav>
+
+
+<!-- ============================================================
+     PAGE 1 — STOREFRONT
+     ============================================================ -->
+<section id="page-storefront" class="page active">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div style="max-width:700px;margin:0 auto">
+      <span class="hero-eyebrow">The Certified Grail Exchange · Razorpay Testnet</span>
+      <h1 class="hero-title">THE GRAIL<br>EXCHANGE</h1>
+      <p class="hero-subtitle">Autonomous AI Concierge & Real-Time Dynamic Checkout. Every sneaker, negotiated live.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:48px">
+        <span class="pill pill-emerald"><span class="pulse"></span> Guardrails Active</span>
+        <span class="pill pill-indigo"><span class="pulse"></span> HMAC-SHA256 Audit Trail</span>
+        <span class="pill pill-amber">Live Stock Tracking</span>
+      </div>
+      <div class="hero-gradient-line"></div>
+    </div>
+  </div>
+
+  <!-- Product Grid -->
+  <div style="max-width:1200px;margin:0 auto;padding:0 24px 80px">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:28px;gap:16px">
+      <div>
+        <span class="section-label">Authenticated Luxury Drops</span>
+        <h2 class="section-title">Current Inventory</h2>
+      </div>
+      <span style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted)">4 items · AI Negotiated</span>
+    </div>
+    <div id="product-grid" class="product-grid">
+      <!-- Populated by JS -->
+      <div style="grid-column:1/-1;text-align:center;padding:80px;color:var(--text-muted);font-family:var(--font-mono);font-size:13px">
+        Loading catalog…
+      </div>
+    </div>
+  </div>
+
+</section>
+
+
+<!-- ============================================================
+     PAGE 2 — AI CONCIERGE CHAT
+     ============================================================ -->
+<section id="page-chat" class="page">
+  <div class="chat-layout">
+
+    <!-- Main -->
+    <div class="chat-main">
+
+      <!-- Header -->
+      <div class="glass chat-header">
+        <div class="agent-avatar">
+          <i data-lucide="bot" style="width:20px;height:20px"></i>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:700">KicksVault AI Concierge</div>
+          <div style="font-size:11px;color:var(--emerald);display:flex;align-items:center;gap:5px;margin-top:2px">
+            <span class="pulse" style="background:var(--emerald)"></span>
+            Online · 3-Stage Negotiation Engine · Pydantic Guardrails
+          </div>
+        </div>
+        <div class="stage-badge" id="stage-badge">Stage: Idle</div>
+      </div>
+
+      <!-- Guardrail alert -->
+      <div id="guardrail-alert" class="guardrail-alert" style="display:none;margin-bottom:10px">
+        <i data-lucide="shield" style="width:14px;height:14px;flex-shrink:0"></i>
+        <span id="guardrail-msg">Margin guardrail enforced.</span>
+      </div>
+
+      <!-- Messages -->
+      <div id="chat-messages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px;margin-bottom:12px">
+        <div class="msg-wrap-agent">
+          <div class="agent-avatar" style="width:30px;height:30px;border-radius:8px;flex-shrink:0">
+            <i data-lucide="bot" style="width:14px;height:14px"></i>
+          </div>
+          <div class="chat-bubble bubble-agent">
+            <strong style="color:var(--indigo-bright)">KicksVault AI</strong>
+            <p style="margin-top:4px">Welcome to <strong>KicksVault India</strong> — the certified luxury sneaker exchange.<br><br>I'm your autonomous AI concierge. Ask me about any sneaker, name your price, or click <em>Negotiate Deal</em> on any product card to start bargaining.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prompt chips -->
+      <div class="chips-wrap">
+        <button class="chip" data-prompt="Tell me about the Air Jordan 1 Chicago Lost & Found. How rare is it?">👟 Inquire Chicago AJ1</button>
+        <button class="chip" data-prompt="I'd like to offer ₹22,000 for the Air Jordan 1 Chicago. Is that a deal?">📉 Offer ₹22,000</button>
+        <button class="chip" data-prompt="I'll buy the Air Jordan 1 PROD_001 right now for ₹22,500. Let's close the deal.">⚡ Buy AJ1 Now</button>
+        <button class="chip" data-prompt="What's the best price you can do for the Yeezy Boost 350 Onyx?">💛 Yeezy Onyx Price</button>
+        <button class="chip" data-prompt="Tell me about the Nike Dunk Low Panda. Can I get a deal?">🐼 Dunk Panda Deal</button>
+      </div>
+
+      <!-- Input -->
+      <div class="chat-input-bar">
+        <i data-lucide="message-square" style="width:15px;height:15px;color:var(--text-muted);flex-shrink:0"></i>
+        <input type="text" id="chat-input" class="chat-input" placeholder="Ask about a sneaker, propose a price, or say 'I'll buy for ₹X now'…" autocomplete="off"/>
+        <button id="send-btn" class="send-btn">
+          <i data-lucide="send" style="width:15px;height:15px"></i>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Sidebar -->
+    <div class="chat-sidebar">
+
+      <!-- Checkout card (hidden until deal) -->
+      <div id="checkout-panel" style="display:none">
+        <div class="checkout-card">
+          <img id="checkout-img" src="" alt="Product" class="checkout-img"/>
+          <div class="checkout-body">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+              <i data-lucide="check-circle" style="width:14px;height:14px;color:var(--emerald)"></i>
+              <span style="font-size:12px;font-weight:700;color:var(--emerald)">Deal Confirmed</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:2px" id="checkout-product-name">—</div>
+            <div class="price-display" id="checkout-price">₹—</div>
+            <div id="checkout-guardrail" class="guardrail-alert" style="display:none;font-size:11px;margin-bottom:12px">
+              <i data-lucide="shield" style="width:11px;height:11px"></i>
+              <span>Guardrail enforced — price adjusted to floor</span>
+            </div>
+            <a id="checkout-link" href="#" target="_blank" class="pay-btn">
+              <i data-lucide="zap" style="width:15px;height:15px"></i>
+              Pay via Razorpay Sandbox →
+            </a>
+            <p style="font-size:10px;color:var(--text-muted);text-align:center;margin-top:8px;font-family:var(--font-mono)">UPI · Card · Netbanking · Wallets</p>
+            <div class="sim-row">
+              <button class="sim-btn sim-success" id="sim-success-chat">✓ Simulate Capture</button>
+              <button class="sim-btn sim-failure" id="sim-failure-chat">✗ Simulate Failure</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mini Telemetry -->
+      <div class="glass" style="padding:16px;flex:1">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+          <i data-lucide="activity" style="width:13px;height:13px;color:var(--indigo-bright)"></i>
+          <span style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:0.06em">LIVE TELEMETRY</span>
+        </div>
+        <div id="mini-telemetry" class="mini-terminal">
+          <div class="log-info">[INIT] KicksVault Agentic Commerce v2.0</div>
+          <div class="log-info">[INIT] LangGraph 3-Stage Negotiation Engine loaded</div>
+          <div class="log-info">[INIT] Pydantic Guardrail Sentinel ACTIVE</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================
+     PAGE 3 — BRAND STORY
+     ============================================================ -->
+<section id="page-story" class="page">
+  <div class="story-container">
+
+    <div class="story-hero">
+      <span class="story-kicker">Brand Philosophy · Technical Architecture</span>
+      <h1 class="story-headline">Why Autonomous Negotiation<br>is the Future of High-Ticket Commerce.</h1>
+      <p class="story-lead">High-ticket D2C drops suffer from <strong style="color:#fff">over 70% cart abandonment</strong> — not because buyers aren't interested, but because rigid checkout funnels and the absence of real-time sales consultation kill intent at the moment of decision.</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="stat-grid">
+      <div class="stat-card">
+        <span class="stat-val" style="color:var(--red)">70%</span>
+        <span class="stat-label">D2C Cart Abandonment</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-val" style="color:var(--indigo-bright)">3</span>
+        <span class="stat-label">Negotiation Stages</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-val" style="color:var(--emerald)">100%</span>
+        <span class="stat-label">Guardrail Coverage</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-val" style="color:var(--amber)">SHA256</span>
+        <span class="stat-label">Webhook Verification</span>
+      </div>
+    </div>
+
+    <!-- Problem / Solution -->
+    <div class="glass" style="padding:32px;margin-bottom:48px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0"></span>
+            <span style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--red)">The Problem</span>
+          </div>
+          <p style="font-size:14px;color:var(--text-secondary);line-height:1.7">Static "Add to Cart" funnels offer no flexibility. High-ticket buyers expect to bargain, ask questions, and feel heard. When that's missing, they leave — and 70% of them don't return.</p>
+        </div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--emerald);display:inline-block;flex-shrink:0"></span>
+            <span style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--emerald)">Our Solution</span>
+          </div>
+          <p style="font-size:14px;color:var(--text-secondary);line-height:1.7">KicksVault pairs a LangGraph conversational AI with Razorpay's instant payment rails — creating a personalised, bargaining-capable experience protected by mathematical floor margins via Pydantic.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div style="margin-bottom:16px">
+      <span class="section-label">Our Architectural Journey</span>
+      <h2 class="section-title" style="margin-bottom:32px">How We Built It</h2>
+    </div>
+
+    <div class="timeline">
+
+      <div class="tl-item">
+        <div class="tl-line-wrap">
+          <div class="tl-dot"><i data-lucide="shield" style="width:16px;height:16px"></i></div>
+          <div class="tl-connector"></div>
+        </div>
+        <div class="tl-content">
+          <span class="tl-phase">Phase 01 — Zero-Hallucination Pricing</span>
+          <h3 class="tl-title">Pydantic Margin Guardrails</h3>
+          <p class="tl-desc">Every price the AI agent negotiates is validated through a <code style="font-family:var(--font-mono);background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:4px">PaymentProposal</code> Pydantic model before any payment link is created. Floor prices are mathematically invariant — no prompt engineering can breach them.</p>
+          <div class="tl-code">floor_price ≤ agreed_price ≤ retail_price</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">
+            <span class="pill pill-indigo">Pydantic v2</span>
+            <span class="pill pill-emerald">Zero-Hallucination</span>
+            <span class="pill pill-emerald">Margin Safety</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-line-wrap">
+          <div class="tl-dot"><i data-lucide="git-branch" style="width:16px;height:16px"></i></div>
+          <div class="tl-connector"></div>
+        </div>
+        <div class="tl-content">
+          <span class="tl-phase">Phase 02 — Multi-Turn State Engine</span>
+          <h3 class="tl-title">LangGraph State Machine & Razorpay Sandbox Rails</h3>
+          <p class="tl-desc">A directed acyclic graph orchestrates the conversation across three sales-psychology stages: Stage 1 opens with craftsmanship & a 4% goodwill discount, Stage 2 counters with the arithmetic retail-floor midpoint, Stage 3 closes only on verified buyer intent — then emits <code style="font-family:var(--font-mono);background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:4px">[ACTION:CREATE_PAYMENT]</code> which triggers Razorpay SDK.</p>
+          <div class="tl-code">Stage 1 → Stage 2 → Stage 3 → [ACTION:CREATE_PAYMENT] → Razorpay SDK</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">
+            <span class="pill pill-indigo">LangGraph</span>
+            <span class="pill pill-indigo">Google Gemini</span>
+            <span class="pill pill-emerald">Razorpay SDK</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-line-wrap">
+          <div class="tl-dot"><i data-lucide="lock" style="width:16px;height:16px"></i></div>
+          <div class="tl-connector"></div>
+        </div>
+        <div class="tl-content">
+          <span class="tl-phase">Phase 03 — Cryptographic Settlement</span>
+          <h3 class="tl-title">HMAC-SHA256 Signature Verification & Immutable Audit Trail</h3>
+          <p class="tl-desc">Every Razorpay webhook is verified with a keyed HMAC-SHA256 signature. Forged or tampered payloads are rejected (HTTP 400) before any order state mutation — creating an immutable, append-only ledger. The computed signature is displayed in the Merchant HUD for real-time transparency.</p>
+          <div class="tl-code">HMAC = SHA256(raw_body, RAZORPAY_WEBHOOK_SECRET)</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">
+            <span class="pill pill-amber">HMAC-SHA256</span>
+            <span class="pill pill-emerald">Immutable Ledger</span>
+            <span class="pill pill-indigo">Tamper-Proof</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-line-wrap">
+          <div class="tl-dot"><i data-lucide="heart-handshake" style="width:16px;height:16px"></i></div>
+          <div style="height:0"></div>
+        </div>
+        <div class="tl-content">
+          <span class="tl-phase">Phase 04 — Drop-Off Re-engagement</span>
+          <h3 class="tl-title">Autonomous Failure Recovery & Re-engagement</h3>
+          <p class="tl-desc">When a <code style="font-family:var(--font-mono);background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:4px">payment_link.failed</code> event is received (e.g. bank timeout, <code style="font-family:var(--font-mono);background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:4px">BAD_REQUEST_PAYMENT_TIMED_OUT</code>), the agent's failure recovery node injects a warm, empathetic message explaining the error and generates a fresh 1-click payment link — retaining the original negotiated price.</p>
+          <div class="tl-code">FAILED → Recovery Node → Warm Message → Fresh Payment Link</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">
+            <span class="pill pill-amber">Failure Recovery</span>
+            <span class="pill pill-emerald">Auto Re-engagement</span>
+            <span class="pill pill-indigo">Session-Aware</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================
+     PAGE 4 — ROADMAP
+     ============================================================ -->
+<section id="page-roadmap" class="page">
+  <div class="roadmap-container">
+
+    <div style="text-align:center;padding:60px 0 56px">
+      <span class="section-label">What's Coming Next</span>
+      <h1 class="hero-title" style="font-size:clamp(36px,5vw,64px);margin-bottom:16px">Future Vision &<br>Scaling Roadmap</h1>
+      <p style="font-size:16px;color:var(--text-secondary);max-width:520px;margin:0 auto">From machine-to-machine transactions to Indic voice negotiations — the next frontier of agentic commerce.</p>
+    </div>
+
+    <div class="roadmap-grid">
+
+      <div class="roadmap-card" style="--accent-glow:rgba(99,102,241,0.1)">
+        <div class="roadmap-icon" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25)">
+          <i data-lucide="network" style="width:24px;height:24px;color:var(--indigo-bright)"></i>
+        </div>
+        <span class="roadmap-phase" style="color:var(--indigo-bright)">Phase 01 · Machine Commerce</span>
+        <h3 class="roadmap-title" style="color:var(--text-primary)">Agent-to-Agent (A2A) Commerce Protocol</h3>
+        <p class="roadmap-desc">External AI agents transact directly via <code style="font-family:var(--font-mono);font-size:11px;background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px">POST /api/agent/transact</code> — NPCI UAP / AP2-ready schema with optional <code style="font-family:var(--font-mono);font-size:11px;background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px">X-Agent-Auth</code> header authentication. Fully machine-readable OpenAPI schema.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:18px">
+          <span class="pill pill-indigo">OpenAPI</span>
+          <span class="pill pill-indigo">NPCI UAP Ready</span>
+          <span class="pill pill-indigo">M2M Commerce</span>
+        </div>
+      </div>
+
+      <div class="roadmap-card" style="--accent-glow:rgba(52,211,153,0.08)">
+        <div class="roadmap-icon" style="background:rgba(52,211,153,0.10);border:1px solid rgba(52,211,153,0.22)">
+          <i data-lucide="mic" style="width:24px;height:24px;color:var(--emerald)"></i>
+        </div>
+        <span class="roadmap-phase" style="color:var(--emerald)">Phase 02 · Voice Commerce</span>
+        <h3 class="roadmap-title" style="color:var(--text-primary)">Multilingual Indic Voice Commerce</h3>
+        <p class="roadmap-desc">Real-time speech-to-text negotiation in Hinglish, Hindi, Tamil, and Telugu. Buyers speak their offer in their native language; the AI responds in kind — expanding reach to 500M+ vernacular internet users across India.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:18px">
+          <span class="pill pill-emerald">Hindi</span>
+          <span class="pill pill-emerald">Hinglish</span>
+          <span class="pill pill-emerald">Tamil</span>
+          <span class="pill pill-emerald">Telugu</span>
+        </div>
+      </div>
+
+      <div class="roadmap-card" style="--accent-glow:rgba(251,191,36,0.08)">
+        <div class="roadmap-icon" style="background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.22)">
+          <i data-lucide="package" style="width:24px;height:24px;color:var(--amber)"></i>
+        </div>
+        <span class="roadmap-phase" style="color:var(--amber)">Phase 03 · Bundle Intelligence</span>
+        <h3 class="roadmap-title" style="color:var(--text-primary)">Dynamic Margin-Optimised Multi-Item Bundles</h3>
+        <p class="roadmap-desc">An autonomous engine that detects upsell opportunities mid-negotiation and proposes margin-optimised bundles (e.g., Jordan 1 + CreaseGuard Kit) — increasing average order value by up to 35% while staying above combined floor prices.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:18px">
+          <span class="pill pill-amber">Bundle Engine</span>
+          <span class="pill pill-amber">↑ AOV</span>
+          <span class="pill pill-amber">Cross-Sell AI</span>
+        </div>
+      </div>
+
+      <div class="roadmap-card" style="--accent-glow:rgba(34,211,238,0.07)">
+        <div class="roadmap-icon" style="background:rgba(34,211,238,0.10);border:1px solid rgba(34,211,238,0.22)">
+          <i data-lucide="smartphone" style="width:24px;height:24px;color:var(--cyan)"></i>
+        </div>
+        <span class="roadmap-phase" style="color:var(--cyan)">Phase 04 · Native Checkout</span>
+        <h3 class="roadmap-title" style="color:var(--text-primary)">In-Chat Native Razorpay Modal</h3>
+        <p class="roadmap-desc">Native <code style="font-family:var(--font-mono);font-size:11px;background:rgba(255,255,255,0.06);padding:1px 5px;border-radius:3px">Razorpay.js</code> UPI intent checkout embedded directly inside the chat window — zero-redirect payment in under 3 taps, with live transaction status streamed back to the agent via webhooks for instant confirmation.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:18px">
+          <span class="pill pill-cyan">Razorpay.js</span>
+          <span class="pill pill-cyan">UPI Intent</span>
+          <span class="pill pill-cyan">Zero Redirect</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================
+     PAGE 5 — MERCHANT HUD
+     ============================================================ -->
+<section id="page-merchant" class="page">
+  <div class="hud-container">
+
+    <div style="margin-bottom:24px">
+      <span class="section-label">Operations Dashboard</span>
+      <h1 class="section-title" style="font-size:24px">Merchant Telemetry HUD</h1>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:4px;font-family:var(--font-mono)">Real-time ledger · HMAC audit trail · Simulation control</p>
+    </div>
+
+    <div class="hud-grid">
+
+      <!-- Left column -->
+      <div style="display:flex;flex-direction:column;gap:18px">
+
+        <!-- Sentinel -->
+        <div>
+          <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Guardrail Sentinel Monitor</p>
+          <div id="sentinel" class="sentinel sentinel-idle">◎ &nbsp; IDLE — Awaiting Negotiation Activity</div>
+        </div>
+
+        <!-- Simulation controls -->
+        <div class="sim-control">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:16px">
+            <i data-lucide="flask-conical" style="width:14px;height:14px;color:var(--amber)"></i>
+            <span style="font-size:13px;font-weight:700">Simulation Control Deck</span>
+            <span style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted);margin-left:auto">X-Dev-Token Protected</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+            <div>
+              <label class="sim-label">Order ID</label>
+              <input type="text" id="sim-order-id" class="sim-input" placeholder="order_sim_001"/>
+            </div>
+            <div>
+              <label class="sim-label">Amount (₹ INR)</label>
+              <input type="number" id="sim-amount" class="sim-input" value="24999" placeholder="24999"/>
+            </div>
+            <div>
+              <label class="sim-label">Product</label>
+              <select id="sim-product-id" class="sim-input">
+                <option value="PROD_001">PROD_001 — Air Jordan 1 Chicago</option>
+                <option value="PROD_002">PROD_002 — Yeezy Boost 350 Onyx</option>
+                <option value="PROD_003">PROD_003 — Nike Dunk Low Panda</option>
+                <option value="PROD_004">PROD_004 — CreaseGuard Kit</option>
+              </select>
+            </div>
+            <div>
+              <label class="sim-label">Customer ID</label>
+              <input type="text" id="sim-customer-id" class="sim-input" value="cust_simulated"/>
+            </div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px">
+            <button id="sim-success-hud" class="btn-hud-success">
+              <i data-lucide="check-circle" style="width:13px;height:13px"></i>
+              Simulate Success Capture
+            </button>
+            <button id="sim-failure-hud" class="btn-hud-failure">
+              <i data-lucide="x-circle" style="width:13px;height:13px"></i>
+              Simulate Timeout Failure
+            </button>
+          </div>
+        </div>
+
+        <!-- Orders ledger -->
+        <div class="glass" style="padding:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <i data-lucide="table" style="width:13px;height:13px;color:var(--indigo-bright)"></i>
+              <span style="font-size:13px;font-weight:700">Live Transaction Ledger</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:5px">
+              <span class="pulse" style="background:var(--emerald)"></span>
+              <span style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted)">Polling /api/orders every 3s</span>
+            </div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="orders-table">
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Product</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="orders-tbody">
+                <tr>
+                  <td colspan="5" style="text-align:center;padding:40px;color:var(--text-muted)">No transactions yet — run a simulation or complete a negotiation.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right: Webhook Terminal -->
+      <div class="glass" style="padding:18px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <i data-lucide="terminal" style="width:13px;height:13px;color:var(--cyan)"></i>
+          <span style="font-size:13px;font-weight:700">Cryptographic Webhook Terminal</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="pulse" style="background:var(--emerald)"></span>
+          <span style="font-size:9px;font-family:var(--font-mono);color:var(--text-muted);letter-spacing:0.08em">HMAC-SHA256 VERIFICATION · ACTIVE</span>
+        </div>
+        <div id="webhook-terminal" class="webhook-terminal" style="flex:1;max-height:none">
+          <div class="log-info">[INIT] Webhook audit terminal started</div>
+          <div class="log-info">[INIT] HMAC-SHA256 signature verification: ENABLED</div>
+          <div class="log-info">[INIT] Listening on POST /api/webhook/razorpay</div>
+          <div class="log-dim">─────────────────────────────────────</div>
+        </div>
+        <button id="btn-clear-log" class="btn-ghost" style="align-self:flex-start">
+          <i data-lucide="trash-2" style="width:11px;height:11px"></i>
+          Clear Log
+        </button>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

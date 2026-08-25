@@ -1,0 +1,9 @@
+fastapi[standard]
+uvicorn[standard]
+python-dotenv
+pydantic>=2.0
+razorpay
+langchain
+langgraph
+langchain-google-genai
+httpx

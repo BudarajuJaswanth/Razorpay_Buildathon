@@ -1,0 +1,628 @@
+// ============================================================
+//  KicksVault India — Agentic Commerce SPA v2.0
+//  app.js — Ultra-premium client-side application
+// ============================================================
+
+// ---------- Product config (mirrors backend catalog) ----------
+const PRODUCTS = {
+  PROD_001: {
+    name: "Air Jordan 1 Retro High OG 'Chicago Lost & Found'",
+    image: 'https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=800&q=80',
+    price: 24999, floor: 21500, stock: 2,
+    badges: [['Grail Drop', 'red'], ['Verified Authentic', 'emerald']],
+    desc: 'Iconic high-top with premium leather and the legendary Chicago colorway. Extremely limited release.'
+  },
+  PROD_002: {
+    name: "Yeezy Boost 350 V2 'Onyx'",
+    image: 'https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2?auto=format&fit=crop&w=800&q=80',
+    price: 19499, floor: 17000, stock: 4,
+    badges: [['Primeknit', 'indigo'], ['Boost', 'indigo']],
+    desc: 'Sleek all-black monochrome silhouette with full-length Boost midsole for unrivaled comfort.'
+  },
+  PROD_003: {
+    name: "Nike Dunk Low Retro 'Panda'",
+    image: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=800&q=80',
+    price: 11999, floor: 9999, stock: 7,
+    badges: [['Street Icon', 'cyan'], ['Fast Selling', 'amber']],
+    desc: "The timeless black-white contrast dunk — a certified collector's staple that never fades."
+  },
+  PROD_004: {
+    name: 'CreaseGuard Pro Care & Sneaker Shield Kit',
+    image: 'https://images.unsplash.com/photo-1607522370275-f14206abe5d3?auto=format&fit=crop&w=800&q=80',
+    price: 1499, floor: 999, stock: 25,
+    badges: [['Essential Addon', 'emerald']],
+    desc: 'Premium care kit: shoe trees, cleaning solution, and crease guards. Protect your grails.'
+  }
+};
+
+const BADGE_COLORS = {
+  red:     { bg: 'rgba(248,113,113,0.12)', color: '#fca5a5', border: 'rgba(248,113,113,0.3)' },
+  emerald: { bg: 'rgba(52,211,153,0.10)',  color: '#6ee7b7', border: 'rgba(52,211,153,0.28)' },
+  indigo:  { bg: 'rgba(99,102,241,0.12)',  color: '#a5b4fc', border: 'rgba(99,102,241,0.3)' },
+  amber:   { bg: 'rgba(251,191,36,0.10)',  color: '#fcd34d', border: 'rgba(251,191,36,0.28)' },
+  cyan:    { bg: 'rgba(34,211,238,0.10)',  color: '#67e8f9', border: 'rgba(34,211,238,0.25)' }
+};
+
+// ---------- State ----------
+let sessionId = generateSessionId();
+let currentCheckout = null;
+let isSending = false;
+const DEV_TOKEN = 'dev-secret-token-razorpay-agentic-2026';
+
+function generateSessionId() {
+  return `sess_${Math.random().toString(36).slice(2,8)}_${Date.now().toString(36)}`;
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  lucide.createIcons();
+  initClock();
+  initSession();
+  initNav();
+  initChat();
+  initHUD();
+  renderProductGrid();
+  startHUDPoller();
+  startFailurePoller();
+  showPage('page-storefront');
+});
+
+// ============================================================
+//  CLOCK
+// ============================================================
+function initClock() {
+  const tick = () => {
+    const el = document.getElementById('live-clock');
+    if (el) el.textContent = new Date().toLocaleTimeString('en-IN', { hour12: false });
+  };
+  tick();
+  setInterval(tick, 1000);
+}
+
+// ============================================================
+//  SESSION
+// ============================================================
+function initSession() {
+  updateSessionUI();
+  document.getElementById('btn-reset')?.addEventListener('click', resetSession);
+}
+
+function updateSessionUI() {
+  const pill = document.getElementById('session-pill');
+  const short = document.getElementById('session-short');
+  if (pill) pill.style.display = 'inline-flex';
+  if (short) short.textContent = sessionId.slice(0, 16) + '…';
+}
+
+async function resetSession() {
+  try {
+    await fetch('/api/reset-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: '', session_id: sessionId })
+    });
+  } catch (_) {}
+  sessionId = generateSessionId();
+  currentCheckout = null;
+  updateSessionUI();
+  resetChatUI();
+  setSentinel('idle');
+  logTerminal('info', `[SESSION] Reset — new session: ${sessionId}`);
+}
+
+function resetChatUI() {
+  const msgs = document.getElementById('chat-messages');
+  if (!msgs) return;
+  msgs.innerHTML = `
+    <div class="msg-wrap-agent">
+      <div class="agent-avatar" style="width:30px;height:30px;border-radius:8px;flex-shrink:0">
+        <i data-lucide="bot" style="width:14px;height:14px"></i>
+      </div>
+      <div class="chat-bubble bubble-agent">
+        <strong style="color:var(--indigo-bright)">KicksVault AI</strong>
+        <p style="margin-top:4px">Session reset. How can I help you today?</p>
+      </div>
+    </div>`;
+  lucide.createIcons();
+  document.getElementById('guardrail-alert').style.display = 'none';
+  document.getElementById('checkout-panel').style.display = 'none';
+  document.getElementById('stage-badge').textContent = 'Stage: Idle';
+}
+
+// ============================================================
+//  NAVIGATION
+// ============================================================
+function initNav() {
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => showPage(btn.dataset.target));
+  });
+}
+
+function showPage(pageId) {
+  document.querySelectorAll('.page').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(pageId)?.classList.add('active');
+  document.querySelector(`[data-target="${pageId}"]`)?.classList.add('active');
+  setTimeout(() => lucide.createIcons(), 60);
+}
+
+// ============================================================
+//  PRODUCT GRID
+// ============================================================
+function renderProductGrid() {
+  const grid = document.getElementById('product-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  // Fetch from API to stay in sync
+  fetch('/api/catalog')
+    .then(r => r.json())
+    .then(catalog => {
+      Object.entries(catalog).forEach(([prodId, prod]) => {
+        const local = PRODUCTS[prodId] || {};
+        const image = local.image || 'https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=800&q=80';
+        const badges = local.badges || [['In Stock', 'emerald']];
+        const stage1 = Math.round(prod.retail_price * 0.96);
+
+        const card = document.createElement('div');
+        card.className = 'product-card';
+
+        const badgeHtml = badges.map(([label, color]) => {
+          const c = BADGE_COLORS[color] || BADGE_COLORS.emerald;
+          return `<span style="background:${c.bg};color:${c.color};border:1px solid ${c.border};padding:3px 9px;border-radius:99px;font-size:9px;font-weight:800;letter-spacing:0.07em;text-transform:uppercase">${label}</span>`;
+        }).join('');
+
+        card.innerHTML = `
+          <div class="card-img-wrap">
+            <img src="${image}" alt="${prod.name}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80'"/>
+            <div class="card-img-overlay"></div>
+            <div class="card-badges">${badgeHtml}</div>
+          </div>
+          <div class="card-body">
+            <div class="card-id">${prodId}</div>
+            <div class="card-name">${prod.name}</div>
+            <div class="card-desc">${prod.description || (local.desc || '')}</div>
+            <div class="card-footer">
+              <div>
+                <div class="card-price">₹${Number(prod.retail_price).toLocaleString('en-IN')}</div>
+                <div class="card-stock">${prod.stock} in stock · AI from ₹${Number(stage1).toLocaleString('en-IN')}</div>
+              </div>
+            </div>
+            <button class="negotiate-btn" data-prod-id="${prodId}">
+              <i data-lucide="bot" style="width:14px;height:14px"></i>
+              Negotiate Deal with AI →
+            </button>
+          </div>`;
+
+        card.querySelector('.negotiate-btn').addEventListener('click', () => seedAndNavigate(prodId, prod.name));
+        grid.appendChild(card);
+      });
+      lucide.createIcons();
+    })
+    .catch(() => {
+      // Fallback: render from local PRODUCTS
+      Object.entries(PRODUCTS).forEach(([prodId, prod]) => {
+        renderLocalCard(grid, prodId, prod);
+      });
+      lucide.createIcons();
+    });
+}
+
+function renderLocalCard(grid, prodId, prod) {
+  const card = document.createElement('div');
+  card.className = 'product-card';
+  const badgeHtml = prod.badges.map(([label, color]) => {
+    const c = BADGE_COLORS[color] || BADGE_COLORS.emerald;
+    return `<span style="background:${c.bg};color:${c.color};border:1px solid ${c.border};padding:3px 9px;border-radius:99px;font-size:9px;font-weight:800;letter-spacing:0.07em;text-transform:uppercase">${label}</span>`;
+  }).join('');
+  const stage1 = Math.round(prod.price * 0.96);
+  card.innerHTML = `
+    <div class="card-img-wrap">
+      <img src="${prod.image}" alt="${prod.name}" loading="lazy"/>
+      <div class="card-img-overlay"></div>
+      <div class="card-badges">${badgeHtml}</div>
+    </div>
+    <div class="card-body">
+      <div class="card-id">${prodId}</div>
+      <div class="card-name">${prod.name}</div>
+      <div class="card-desc">${prod.desc}</div>
+      <div class="card-footer">
+        <div>
+          <div class="card-price">₹${prod.price.toLocaleString('en-IN')}</div>
+          <div class="card-stock">${prod.stock} in stock · AI from ₹${stage1.toLocaleString('en-IN')}</div>
+        </div>
+      </div>
+      <button class="negotiate-btn" data-prod-id="${prodId}">
+        <i data-lucide="bot" style="width:14px;height:14px"></i>
+        Negotiate Deal with AI →
+      </button>
+    </div>`;
+  card.querySelector('.negotiate-btn').addEventListener('click', () => seedAndNavigate(prodId, prod.name));
+  grid.appendChild(card);
+}
+
+function seedAndNavigate(prodId, prodName) {
+  showPage('page-chat');
+  setTimeout(() => {
+    const input = document.getElementById('chat-input');
+    if (input) {
+      input.value = `I'm interested in the ${prodName}. What's your best price?`;
+      sendMessage();
+    }
+  }, 100);
+}
+
+// ============================================================
+//  CHAT
+// ============================================================
+function initChat() {
+  document.getElementById('send-btn')?.addEventListener('click', sendMessage);
+  document.getElementById('chat-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+  document.querySelectorAll('.chip').forEach(c => {
+    c.addEventListener('click', () => {
+      const input = document.getElementById('chat-input');
+      if (input) { input.value = c.dataset.prompt; sendMessage(); }
+    });
+  });
+  document.getElementById('sim-success-chat')?.addEventListener('click', () => {
+    currentCheckout ? simulateDirect('success') : appendSystem('⚠ Complete a negotiation first to get a payment link.');
+  });
+  document.getElementById('sim-failure-chat')?.addEventListener('click', () => {
+    currentCheckout ? simulateDirect('failure') : appendSystem('⚠ Complete a negotiation first to get a payment link.');
+  });
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const text = (input?.value || '').trim();
+  if (!text || isSending) return;
+  input.value = '';
+  isSending = true;
+  document.getElementById('send-btn').disabled = true;
+
+  appendUser(text);
+  showTyping();
+  setSentinel('eval');
+  logMini(`[USER] ${text.slice(0, 80)}`);
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, session_id: sessionId })
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    hideTyping();
+    appendAgent(data.reply);
+    updateStageBadge(data.negotiation_stage);
+    logMini(`[AGENT] ${data.reply.slice(0, 80)}${data.reply.length > 80 ? '…' : ''}`);
+
+    if (data.guardrail_triggered) {
+      showGuardrailAlert(`🛡️ Sentinel enforced: price adjusted to ₹${Number(data.agreed_price).toLocaleString('en-IN')} (floor guardrail active).`);
+      setSentinel('enforced');
+      logTerminal('warn', `[SENTINEL] Guardrail enforced — product: ${data.product_id} · final: ₹${data.agreed_price}`);
+    } else {
+      setSentinel('idle');
+    }
+
+    if (data.checkout_url) {
+      renderCheckoutCard(data);
+      logTerminal('ok', `[PAYMENT LINK] Created — ₹${data.agreed_price} · ${data.product_id}`);
+      logTerminal('ok', `[URL] ${data.checkout_url}`);
+    }
+
+  } catch (err) {
+    hideTyping();
+    appendSystem(`⚠ Error: ${err.message}`);
+    logTerminal('fail', `[ERROR] Chat API: ${err.message}`);
+    setSentinel('idle');
+  } finally {
+    isSending = false;
+    document.getElementById('send-btn').disabled = false;
+    input?.focus();
+  }
+}
+
+function renderCheckoutCard(data) {
+  const prodId = data.product_id || 'PROD_001';
+  const prod = PRODUCTS[prodId] || {};
+  currentCheckout = {
+    order_id: `order_chat_${Date.now()}`,
+    product_id: prodId,
+    amount: data.agreed_price,
+    checkout_url: data.checkout_url
+  };
+
+  const imgEl = document.getElementById('checkout-img');
+  if (imgEl) imgEl.src = prod.image || '';
+
+  const nameEl = document.getElementById('checkout-product-name');
+  if (nameEl) nameEl.textContent = prod.name || prodId;
+
+  const priceEl = document.getElementById('checkout-price');
+  if (priceEl) priceEl.textContent = `₹${Number(data.agreed_price).toLocaleString('en-IN')}`;
+
+  const linkEl = document.getElementById('checkout-link');
+  if (linkEl) linkEl.href = data.checkout_url || '#';
+
+  const guardEl = document.getElementById('checkout-guardrail');
+  if (guardEl) guardEl.style.display = data.guardrail_triggered ? 'flex' : 'none';
+
+  document.getElementById('checkout-panel').style.display = 'block';
+}
+
+// ============================================================
+//  BUBBLE HELPERS
+// ============================================================
+function appendUser(text) {
+  const msgs = document.getElementById('chat-messages');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-wrap-user';
+  wrap.innerHTML = `<div class="chat-bubble bubble-user"><p>${esc(text)}</p></div>`;
+  msgs.appendChild(wrap);
+  scrollBottom(msgs);
+}
+
+function appendAgent(text) {
+  const msgs = document.getElementById('chat-messages');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-wrap-agent';
+  const formatted = esc(text)
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
+  wrap.innerHTML = `
+    <div class="agent-avatar" style="width:30px;height:30px;border-radius:8px;flex-shrink:0">
+      <i data-lucide="bot" style="width:14px;height:14px"></i>
+    </div>
+    <div class="chat-bubble bubble-agent"><p>${formatted}</p></div>`;
+  msgs.appendChild(wrap);
+  scrollBottom(msgs);
+  lucide.createIcons();
+}
+
+function appendSystem(text) {
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'bubble-system';
+  div.textContent = text;
+  msgs.appendChild(div);
+  scrollBottom(msgs);
+}
+
+function showTyping() {
+  const msgs = document.getElementById('chat-messages');
+  const wrap = document.createElement('div');
+  wrap.className = 'typing-wrap';
+  wrap.id = 'typing-indicator';
+  wrap.innerHTML = `
+    <div class="agent-avatar" style="width:30px;height:30px;border-radius:8px;flex-shrink:0">
+      <i data-lucide="bot" style="width:14px;height:14px"></i>
+    </div>
+    <div class="typing-bubble">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    </div>`;
+  msgs.appendChild(wrap);
+  scrollBottom(msgs);
+  lucide.createIcons();
+}
+
+function hideTyping() { document.getElementById('typing-indicator')?.remove(); }
+function scrollBottom(el) { requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; }); }
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+// ============================================================
+//  STAGE BADGE & GUARDRAIL
+// ============================================================
+function updateStageBadge(stage) {
+  const el = document.getElementById('stage-badge');
+  if (!el) return;
+  const labels = { 0:'Stage: Idle', 1:'Stage 1 — Craftsmanship', 2:'Stage 2 — Mid Offer', 3:'Stage 3 — Closing' };
+  el.textContent = labels[stage] ?? 'Stage: Active';
+}
+
+function showGuardrailAlert(msg) {
+  const el = document.getElementById('guardrail-alert');
+  const msgEl = document.getElementById('guardrail-msg');
+  if (el) el.style.display = 'flex';
+  if (msgEl) msgEl.textContent = msg;
+}
+
+// ============================================================
+//  SENTINEL
+// ============================================================
+function setSentinel(state) {
+  const el = document.getElementById('sentinel');
+  if (!el) return;
+  el.className = 'sentinel';
+  if (state === 'idle') {
+    el.classList.add('sentinel-idle');
+    el.textContent = '◎  IDLE — Awaiting Negotiation Activity';
+  } else if (state === 'eval') {
+    el.classList.add('sentinel-eval');
+    el.textContent = '⚡  EVALUATING — Guardrail Sentinel Running…';
+  } else if (state === 'enforced') {
+    el.classList.add('sentinel-enforced');
+    el.textContent = '🛡️  MARGIN GUARDRAIL ENFORCED — Price Clamped to Floor';
+  }
+}
+
+// ============================================================
+//  HUD
+// ============================================================
+function initHUD() {
+  document.getElementById('sim-success-hud')?.addEventListener('click', () => runSim('success'));
+  document.getElementById('sim-failure-hud')?.addEventListener('click', () => runSim('failure'));
+  document.getElementById('btn-clear-log')?.addEventListener('click', clearLog);
+}
+
+function startHUDPoller() { pollOrders(); setInterval(pollOrders, 3000); }
+
+async function pollOrders() {
+  try {
+    const resp = await fetch('/api/orders');
+    if (!resp.ok) return;
+    renderOrders(await resp.json());
+  } catch (_) {}
+}
+
+function renderOrders(orders) {
+  const tbody = document.getElementById('orders-tbody');
+  if (!tbody) return;
+  if (!orders?.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-muted)">No transactions yet.</td></tr>`;
+    return;
+  }
+  const STATUS_STYLE = {
+    created: { dot: 'var(--indigo-bright)', label: 'CREATED' },
+    paid:    { dot: 'var(--emerald)',       label: 'PAID' },
+    failed:  { dot: 'var(--red)',           label: 'FAILED' }
+  };
+  tbody.innerHTML = orders.slice().reverse().map(o => {
+    const s = STATUS_STYLE[o.status] || STATUS_STYLE.created;
+    const ts = (o.paid_at || o.created_at) ? new Date(o.paid_at || o.created_at).toLocaleTimeString() : '—';
+    return `<tr>
+      <td style="color:var(--text-muted);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.order_id}">${o.order_id}</td>
+      <td style="color:var(--text-secondary)">${o.product_id}</td>
+      <td style="color:var(--text-primary);font-weight:700">₹${Number(o.amount).toLocaleString('en-IN')}</td>
+      <td><span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:800;letter-spacing:0.06em">
+        <span class="status-dot-sm" style="background:${s.dot}"></span>${s.label}
+      </span></td>
+      <td style="color:var(--text-muted)">${ts}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function runSim(type) {
+  const orderId   = document.getElementById('sim-order-id')?.value.trim()  || `order_sim_${Date.now()}`;
+  const amount    = parseFloat(document.getElementById('sim-amount')?.value)  || 24999;
+  const productId = document.getElementById('sim-product-id')?.value           || 'PROD_001';
+  const custId    = document.getElementById('sim-customer-id')?.value.trim()  || 'cust_simulated';
+
+  const endpoint = type === 'success' ? '/api/simulate-payment' : '/api/simulate-failure';
+  logTerminal('info', `[SIM] → ${type.toUpperCase()} · ${endpoint}`);
+  logTerminal('info', `[SIM] order=${orderId} product=${productId} amount=₹${amount}`);
+  setSentinel(type === 'failure' ? 'enforced' : 'eval');
+
+  try {
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Dev-Token': DEV_TOKEN },
+      body: JSON.stringify({ order_id: orderId, amount, product_id: productId, customer_id: custId })
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      if (type === 'success') {
+        logTerminal('ok',   `[WEBHOOK] ✓ payment_link.paid`);
+        logTerminal('ok',   `[HMAC]    ${data.verified_hmac?.slice(0,32)}…`);
+        logTerminal('ok',   `[LEDGER]  ${orderId} → STATUS: PAID`);
+        setSentinel('idle');
+      } else {
+        logTerminal('fail', `[WEBHOOK] ✗ payment_link.failed`);
+        logTerminal('fail', `[ERROR]   reason=bank_transaction_timeout`);
+        logTerminal('fail', `[CODE]    BAD_REQUEST_PAYMENT_TIMED_OUT`);
+        logTerminal('warn', `[RECOVERY] Session recovery workflow triggered`);
+        logTerminal('ok',   `[HMAC]    ${data.verified_hmac?.slice(0,32)}…`);
+      }
+      logTerminal('dim', `─────────────────────────────────────`);
+    } else {
+      logTerminal('fail', `[ERR] ${resp.status} ${data.detail}`);
+      setSentinel('idle');
+    }
+    await pollOrders();
+  } catch (err) {
+    logTerminal('fail', `[ERR] ${err.message}`);
+    setSentinel('idle');
+  }
+}
+
+async function simulateDirect(type) {
+  if (!currentCheckout) return;
+  const endpoint = type === 'success' ? '/api/simulate-payment' : '/api/simulate-failure';
+  try {
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Dev-Token': DEV_TOKEN },
+      body: JSON.stringify({
+        order_id: currentCheckout.order_id,
+        amount: currentCheckout.amount,
+        product_id: currentCheckout.product_id,
+        customer_id: `cust_${sessionId.slice(-6)}`
+      })
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      const msg = type === 'success'
+        ? `✅ Webhook simulated: payment_link.paid — HMAC: ${data.verified_hmac?.slice(0,20)}…`
+        : `⚠️ Webhook simulated: payment_link.failed — bank_transaction_timeout`;
+      appendSystem(msg);
+      logMini(`[WEBHOOK] ${type === 'success' ? 'PAID' : 'FAILED'} — HMAC verified`);
+      logTerminal(type === 'success' ? 'ok' : 'fail', `[CHAT SIM] ${type.toUpperCase()} — ${data.verified_hmac?.slice(0,24)}…`);
+      await pollOrders();
+    } else {
+      appendSystem(`⚠ Simulation error: ${data.detail}`);
+    }
+  } catch (err) {
+    appendSystem(`⚠ Simulation failed: ${err.message}`);
+  }
+}
+
+// ============================================================
+//  FAILURE POLLER
+// ============================================================
+function startFailurePoller() {
+  setInterval(async () => {
+    try {
+      const resp = await fetch(`/api/last-failed-order?session_id=${sessionId}`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (data.has_failure) {
+        logTerminal('fail', `[FAILURE DETECTED] ${data.order_id} — recovery workflow pending`);
+        appendSystem(`⚠️ Payment failure detected. Send a message to trigger the AI recovery workflow.`);
+      }
+    } catch (_) {}
+  }, 6000);
+}
+
+// ============================================================
+//  LOGGING
+// ============================================================
+function logTerminal(level, msg) {
+  const el = document.getElementById('webhook-terminal');
+  if (!el) return;
+  const ts = new Date().toLocaleTimeString('en-IN', { hour12: false });
+  const div = document.createElement('div');
+  div.className = `log-entry log-${level}`;
+  div.textContent = `[${ts}] ${msg}`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function logMini(msg) {
+  const el = document.getElementById('mini-telemetry');
+  if (!el) return;
+  const ts = new Date().toLocaleTimeString('en-IN', { hour12: false });
+  const div = document.createElement('div');
+  div.className = 'log-info log-entry';
+  div.textContent = `[${ts}] ${msg}`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLog() {
+  const el = document.getElementById('webhook-terminal');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="log-dim">[CLEAR] Log cleared by operator</div>
+    <div class="log-info">[INIT] HMAC-SHA256 verification: ENABLED</div>`;
+}
