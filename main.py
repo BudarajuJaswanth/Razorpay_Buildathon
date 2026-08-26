@@ -117,11 +117,21 @@ async def root_index():
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
     try:
+        if not os.getenv("GROQ_API_KEY"):
+            return ChatResponse(
+                reply="⚠️ System Notice: `GROQ_API_KEY` is missing in Vercel Environment Variables. Please configure it in your Vercel Dashboard Settings.",
+                session_id=req.session_id,
+                guardrail_triggered=False,
+                negotiation_stage=0
+            )
+
         if _AGENT_IMPORT_ERROR or graph_app is None:
             return ChatResponse(
-                reply=f"⚠️ Agent Notice: We encountered a temporary connection glitch ({_AGENT_IMPORT_ERROR or 'Agent graph not loaded'}). Please verify GROQ_API_KEY.",
+                reply=f"⚠️ Agent Notice: We encountered a temporary connection glitch ({_AGENT_IMPORT_ERROR or 'Agent graph not loaded'}). Please verify GROQ_API_KEY in Vercel settings.",
                 session_id=req.session_id,
-                error=str(_AGENT_IMPORT_ERROR)
+                error=str(_AGENT_IMPORT_ERROR),
+                guardrail_triggered=False,
+                negotiation_stage=0
             )
 
         state = _sessions.get(req.session_id)
@@ -170,13 +180,14 @@ async def chat_endpoint(req: ChatRequest):
             product_id=state.get("product_id"),
             session_id=req.session_id,
         )
-    except Exception as e:
+    except Exception as exc:
         import traceback
         traceback.print_exc()
         return ChatResponse(
-            reply=f"⚠️ Agent Notice: We encountered a temporary connection glitch ({str(e)}). Please verify GROQ_API_KEY or retry.",
+            reply=f"⚠️ Connection Glitch: {str(exc)}. Please try again in a moment.",
             session_id=req.session_id,
-            error=str(e),
+            error=str(exc),
+            guardrail_triggered=False,
             negotiation_stage=0,
         )
 
