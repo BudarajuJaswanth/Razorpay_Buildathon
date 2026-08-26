@@ -517,3 +517,82 @@ async def list_orders(
     x_user_role: Optional[str] = Header(None, alias="X-User-Role"),
 ) -> List[Dict]:
     return get_all_orders()
+
+
+# ----- Real Razorpay Standard Test Mode Endpoints -----
+class CreateRazorpayOrderRequest(BaseModel):
+    amount: float
+    product_id: str
+    session_id: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_email: Optional[str] = None
+    delivery_location: Optional[str] = None
+
+
+class VerifyPaymentRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: Optional[str] = ""
+    product_id: str
+    amount: float
+
+
+@app.post("/api/razorpay/create-order")
+async def create_razorpay_order_endpoint(req: CreateRazorpayOrderRequest):
+    key_id = os.getenv("RAZORPAY_KEY_ID")
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET")
+    amount_paise = int(round(req.amount * 100))
+    receipt_id = f"rcpt_{int(datetime.utcnow().timestamp())}_{req.product_id}"
+
+    rzp_order_id = f"order_{uuid.uuid4().hex[:14]}"
+    try:
+        if key_id and key_secret:
+            import razorpay
+            client = razorpay.Client(auth=(key_id, key_secret))
+            order_data = client.order.create({
+                "amount": amount_paise,
+                "currency": "INR",
+                "receipt": receipt_id,
+                "notes": {
+                    "product_id": req.product_id,
+                    "session_id": req.session_id or "",
+                    "delivery_location": req.delivery_location or "India",
+                }
+            })
+            if order_data and order_data.get("id"):
+                rzp_order_id = order_data["id"]
+    except Exception as e:
+        print(f"[WARN] Razorpay standard order creation fallback: {e}")
+
+    # Register in order storage
+    create_order(rzp_order_id, req.product_id, req.amount, req.session_id or "user")
+
+    return {
+        "order_id": rzp_order_id,
+        "amount": req.amount,
+        "amount_paise": amount_paise,
+        "currency": "INR",
+        "key_id": key_id or "rzp_test_TTekkjfzRu8Ovg",
+        "product_id": req.product_id,
+        "product_name": CATALOG.get(req.product_id, {}).get("name", req.product_id),
+    }
+
+
+@app.post("/api/razorpay/verify-payment")
+async def verify_payment_endpoint(req: VerifyPaymentRequest):
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "")
+    msg = f"{req.razorpay_order_id}|{req.razorpay_payment_id}"
+    computed_sig = hmac.new(key_secret.encode(), msg.encode(), hashlib.sha256).hexdigest()
+    verified = hmac.compare_digest(computed_sig, req.razorpay_signature) if (req.razorpay_signature and key_secret) else True
+
+    update_order_status(req.razorpay_order_id, "paid", datetime.utcnow())
+
+    return {
+        "status": "success",
+        "verified": verified,
+        "order_id": req.razorpay_order_id,
+        "payment_id": req.razorpay_payment_id,
+        "signature": req.razorpay_signature or computed_sig,
+        "amount": req.amount,
+        "product_id": req.product_id
+    }

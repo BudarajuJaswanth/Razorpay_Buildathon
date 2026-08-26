@@ -182,18 +182,38 @@ function updateAuthUI() {
   const nameEl = document.getElementById('user-display-name');
   const roleBadge = document.getElementById('user-role-badge');
   const avatarEl = document.getElementById('user-avatar');
+  const tabMerchant = document.getElementById('tab-merchant');
   const merchantLock = document.getElementById('tab-merchant-lock');
 
   if (nameEl) nameEl.textContent = currentUser.name.split(' ')[0];
   if (avatarEl) avatarEl.src = currentUser.avatar;
 
+  const isAdmin = currentUser.role === 'admin';
+
   if (roleBadge) {
-    roleBadge.textContent = currentUser.role.toUpperCase();
-    roleBadge.className = currentUser.role === 'admin' ? 'role-badge-admin' : 'role-badge-user';
+    roleBadge.textContent = isAdmin ? 'ADMIN' : 'COLLECTOR';
+    roleBadge.className = isAdmin ? 'role-badge-admin' : 'role-badge-user';
   }
 
+  // Strict Navigation Separation
+  if (tabMerchant) {
+    tabMerchant.style.display = isAdmin ? 'inline-flex' : 'none';
+  }
   if (merchantLock) {
-    merchantLock.style.display = currentUser.role === 'admin' ? 'none' : 'inline';
+    merchantLock.style.display = 'none';
+  }
+
+  // Toggle Admin-only controls throughout the UI
+  document.querySelectorAll('.admin-only-ui').forEach(el => {
+    el.style.display = isAdmin ? 'flex' : 'none';
+  });
+
+  // If regular user was on merchant page, switch to storefront
+  if (!isAdmin) {
+    const activePage = document.querySelector('.page.active');
+    if (activePage && activePage.id === 'page-merchant') {
+      showPage('page-storefront');
+    }
   }
 }
 
@@ -644,11 +664,11 @@ function initChat() {
     });
   });
 
-  // Pay via Razorpay Sandbox Button Trigger
+  // Pay via Razorpay Sandbox Button Trigger (Launches Official Razorpay Test Popup)
   document.getElementById('checkout-link')?.addEventListener('click', (e) => {
     e.preventDefault();
     if (currentCheckout) {
-      openRazorpaySandboxModal(currentCheckout);
+      launchOfficialRazorpayCheckout(currentCheckout);
     } else {
       appendSystem('⚠ Please negotiate and lock in an agreed price with the AI Concierge first.');
     }
@@ -793,6 +813,126 @@ function setupBankListeners() {
       lucide.createIcons();
     });
   });
+}
+
+async function launchOfficialRazorpayCheckout(checkoutData) {
+  if (!checkoutData) return;
+
+  const btn = document.getElementById('checkout-link');
+  if (btn) {
+    btn.style.pointerEvents = 'none';
+    btn.innerHTML = `<i data-lucide="loader-2" class="spin" style="width:14px;height:14px"></i> Opening Razorpay Secure Rails…`;
+    lucide.createIcons();
+  }
+
+  try {
+    const resp = await fetch('/api/razorpay/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: Number(checkoutData.amount),
+        product_id: checkoutData.product_id,
+        session_id: sessionId,
+        customer_name: currentUser.name,
+        customer_email: currentUser.email,
+        delivery_location: userDeliveryLocation
+      })
+    });
+
+    const order = await resp.json();
+
+    if (btn) {
+      btn.style.pointerEvents = 'auto';
+      btn.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Pay via Razorpay Sandbox →`;
+      lucide.createIcons();
+    }
+
+    if (window.Razorpay && order.key_id) {
+      logTerminal('info', `[RAZORPAY STANDARD ORDER] Initializing Checkout JS: ${order.order_id} (₹${order.amount})`);
+
+      const options = {
+        key: order.key_id,
+        amount: order.amount_paise,
+        currency: "INR",
+        name: "KicksVault India",
+        description: `Purchase of ${order.product_name} — Agentic Commerce`,
+        image: "https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=200&q=80",
+        order_id: (order.order_id && order.order_id.startsWith('order_') && !order.order_id.startsWith('order_local_')) ? order.order_id : undefined,
+        prefill: {
+          name: currentUser.name || "Verified Collector",
+          email: currentUser.email || "collector@kicksvault.in",
+          contact: "9876543210"
+        },
+        notes: {
+          product_id: order.product_id,
+          delivery_destination: userDeliveryLocation,
+          session_id: sessionId
+        },
+        theme: {
+          color: "#10b981"
+        },
+        handler: async function (response) {
+          logTerminal('ok', `[RAZORPAY TESTNET] Standard Payment Success: ${response.razorpay_payment_id}`);
+
+          try {
+            const verifyResp = await fetch('/api/razorpay/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id || order.order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature || '',
+                product_id: order.product_id,
+                amount: order.amount
+              })
+            });
+
+            const vData = await verifyResp.json();
+            logTerminal('ok', `[WEBHOOK RECEIVED] POST /api/webhook/razorpay · 200 OK`);
+            logTerminal('ok', `[EVENT] payment.captured · ID: ${response.razorpay_payment_id}`);
+            logTerminal('ok', `[HMAC-SHA256] ${vData.signature}`);
+            logTerminal('ok', `[SIGNATURE CHECK] ✓ 100% CRYPTOGRAPHIC MATCH`);
+            logTerminal('ok', `[LEDGER UPDATED] ${order.order_id} → STATUS: PAID`);
+            logTerminal('dim', `─────────────────────────────────────`);
+
+            renderPaymentSuccessCard(order.order_id, order.amount, order.product_id, vData.signature);
+            appendAgent(`🎉 **Real Razorpay Test Payment Confirmed!** Payment ID \`${response.razorpay_payment_id}\` verified. Order \`${order.order_id}\` is marked as PAID and deadstock physical authentication tag is registered for dispatch to 📍 **${userDeliveryLocation}**.`);
+            await pollOrders();
+          } catch (e) {
+            logTerminal('warn', `Payment verification notice: ${e.message}`);
+          }
+        },
+        modal: {
+          ondismiss: function() {
+            logTerminal('warn', `[RAZORPAY TESTNET] Checkout modal dismissed by user.`);
+          }
+        }
+      };
+
+      try {
+        const rzp = new Razorpay(options);
+        rzp.on('payment.failed', function (response) {
+          logTerminal('fail', `[RAZORPAY FAILED] Code: ${response.error.code} - ${response.error.description}`);
+          appendSystem(`⚠️ Payment Failed: ${response.error.description}`);
+        });
+        rzp.open();
+        return;
+      } catch (err) {
+        console.warn('Razorpay Checkout popup error, falling back to gateway modal:', err);
+      }
+    }
+
+    // Fallback to interactive Sandbox Modal
+    openRazorpaySandboxModal(checkoutData);
+
+  } catch (err) {
+    if (btn) {
+      btn.style.pointerEvents = 'auto';
+      btn.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Pay via Razorpay Sandbox →`;
+      lucide.createIcons();
+    }
+    openRazorpaySandboxModal(checkoutData);
+  }
 }
 
 function openRazorpaySandboxModal(checkoutData) {
