@@ -8,8 +8,8 @@ from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, System
 from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, END
 
-# Load environment variables
-load_dotenv(dotenv_path='c:/Users/chand/OneDrive/Desktop/razorpay Buildathon/.env')
+# Load environment variables (local .env; on Vercel these come from the dashboard)
+load_dotenv()
 
 # Import guardrails & storage
 from guardrails import (

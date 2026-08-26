@@ -14,9 +14,9 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 
-# Load environment variables
+# Load environment variables (portable — works locally and on Vercel)
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
-load_dotenv(dotenv_path=os.path.join(PROJECT_ROOT, ".env"))
+load_dotenv(dotenv_path=os.path.join(PROJECT_ROOT, ".env"), override=False)
 
 # Port configuration
 PORT = int(os.getenv("PORT", 8000))
@@ -79,13 +79,18 @@ class AgentTransactResponse(BaseModel):
     guardrail_triggered: bool
     order_id: str
 
+# ----- Health -----
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": "KicksVault India", "region": os.getenv("VERCEL_REGION", "local")}
+
 # ----- Root -----
 @app.get("/")
 async def root_index():
-    index_path = os.path.join(static_dir, "index.html")
+    index_path = os.path.join(PROJECT_ROOT, "static", "index.html")
     if os.path.isfile(index_path):
         return FileResponse(index_path)
-    return {"message": "KicksVault India API is running. No static UI found."}
+    return {"status": "ok", "message": "KicksVault India API — Static UI not found"}
 
 # ----- Chat Endpoint -----
 @app.post("/api/chat", response_model=ChatResponse)
