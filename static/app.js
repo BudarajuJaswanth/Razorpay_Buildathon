@@ -406,9 +406,9 @@ async function sendMessage() {
     }
 
     if (data.guardrail_triggered) {
-      showGuardrailAlert(`🛡️ Sentinel enforced: price adjusted to ₹${Number(data.agreed_price).toLocaleString('en-IN')} (floor guardrail active).`);
+      showGuardrailAlert(`🛡️ Vault Sentinel: Best available collector pricing locked in at ₹${Number(data.agreed_price).toLocaleString('en-IN')}.`);
       setSentinel('enforced');
-      logTerminal('warn', `[SENTINEL] Guardrail enforced — product: ${data.product_id} · final: ₹${data.agreed_price}`);
+      logTerminal('warn', `[SENTINEL] Vault reserve enforced — product: ${data.product_id} · final: ₹${data.agreed_price}`);
     } else {
       setSentinel('idle');
     }
