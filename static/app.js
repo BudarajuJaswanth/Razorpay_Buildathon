@@ -676,18 +676,29 @@ function initRazorpayModal() {
     });
   });
 
-  document.getElementById('btn-rzp-pay-confirm')?.addEventListener('click', () => {
-    closeRazorpaySandboxModal();
-    if (currentCheckout) {
-      simulateDirect('success');
-      appendSystem(`🎉 Payment Authorized! Razorpay Sandbox has confirmed the capture of ₹${Number(currentCheckout.amount).toLocaleString('en-IN')}. Order Receipt generated.`);
+  document.getElementById('btn-rzp-pay-confirm')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-rzp-pay-confirm');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<i data-lucide="loader-2" class="spin" style="width:14px;height:14px"></i> Authorizing Sandbox Rails…`;
+      lucide.createIcons();
     }
+    setTimeout(async () => {
+      closeRazorpaySandboxModal();
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="shield-check" style="width:16px;height:16px"></i> <span>Authorize & Pay <span id="rzp-btn-amount">₹${Number(currentCheckout?.amount || 0).toLocaleString('en-IN')}</span></span>`;
+      }
+      if (currentCheckout) {
+        await executeRealPaymentSimulation('success');
+      }
+    }, 600);
   });
 
-  document.getElementById('btn-rzp-sim-fail')?.addEventListener('click', () => {
+  document.getElementById('btn-rzp-sim-fail')?.addEventListener('click', async () => {
     closeRazorpaySandboxModal();
     if (currentCheckout) {
-      simulateDirect('failure');
+      await executeRealPaymentSimulation('failure');
     }
   });
 }
@@ -698,33 +709,90 @@ function updateRazorpayMethodUI(method) {
 
   if (method === 'upi') {
     container.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <i data-lucide="check" style="width:12px;height:12px;color:var(--emerald)"></i>
-        <span style="color:var(--text-primary);font-weight:600">Simulated Instant UPI Transfer</span>
+      <div style="display:flex;gap:14px;align-items:center">
+        <div style="width:70px;height:70px;background:#ffffff;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:4px;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,0.3)">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=upi://pay?pa=collector@okhdfcbank" alt="UPI QR" style="width:100%;height:100%;object-fit:contain"/>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px">Scan UPI QR or Tap App</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">
+            <span class="rzp-app-pill active">GPay</span>
+            <span class="rzp-app-pill">PhonePe</span>
+            <span class="rzp-app-pill">Paytm</span>
+            <span class="rzp-app-pill">CRED</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-secondary)">Virtual VPA: <span style="color:var(--cyan);font-family:var(--font-mono);font-weight:700">collector@okhdfcbank</span></div>
+        </div>
       </div>
-      <div>Virtual VPA: <span style="font-family:var(--font-mono);color:var(--cyan)">collector@okhdfcbank</span></div>
-      <div style="margin-top:4px">Destination: <span style="color:var(--text-primary)">📍 ${esc(userDeliveryLocation)}</span></div>
     `;
+    setupPillListeners();
   } else if (method === 'card') {
     container.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <i data-lucide="credit-card" style="width:12px;height:12px;color:var(--indigo-bright)"></i>
-        <span style="color:var(--text-primary);font-weight:600">Razorpay Test Card (4111 •••• •••• 4444)</span>
+      <div>
+        <div style="background:linear-gradient(135deg,#18181b,#09090b);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-size:10px;font-weight:800;letter-spacing:0.08em;color:var(--indigo-bright)">RAZORPAY TEST CARD</span>
+            <span style="font-size:10px;font-weight:800;color:#fff;background:rgba(255,255,255,0.1);padding:1px 6px;border-radius:4px">VISA / MC</span>
+          </div>
+          <div style="font-family:var(--font-mono);font-size:13px;letter-spacing:0.12em;color:#fff;margin-bottom:8px">4111 •••• •••• 4444</div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-secondary);font-family:var(--font-mono)">
+            <span>EXP: 12/28</span>
+            <span>CVV: 999</span>
+            <span>NAME: ${esc(currentUser.name)}</span>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--emerald);display:flex;align-items:center;gap:4px">
+          <i data-lucide="shield-check" style="width:12px;height:12px"></i>
+          3D-Secure Test OTP auto-verified by payment gateway
+        </div>
       </div>
-      <div>Expiry: <span style="font-family:var(--font-mono);color:var(--cyan)">12/28</span> · CVV: <span style="font-family:var(--font-mono);color:var(--cyan)">999</span></div>
-      <div style="margin-top:4px">3D-Secure Sandbox: <span style="color:var(--emerald)">Auto-OTP Verified</span></div>
     `;
   } else if (method === 'netbanking') {
     container.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <i data-lucide="landmark" style="width:12px;height:12px;color:var(--amber)"></i>
-        <span style="color:var(--text-primary);font-weight:600">HDFC / ICICI / SBI / Axis Sandbox</span>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:8px">Select NetBanking Institution:</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div class="rzp-bank-card active"><i data-lucide="check-circle" style="width:12px;height:12px;color:var(--emerald)"></i> HDFC Bank</div>
+          <div class="rzp-bank-card"><i data-lucide="circle" style="width:12px;height:12px;color:var(--text-muted)"></i> ICICI Bank</div>
+          <div class="rzp-bank-card"><i data-lucide="circle" style="width:12px;height:12px;color:var(--text-muted)"></i> State Bank (SBI)</div>
+          <div class="rzp-bank-card"><i data-lucide="circle" style="width:12px;height:12px;color:var(--text-muted)"></i> Axis Bank</div>
+        </div>
       </div>
-      <div>Corporate Gateway: <span style="font-family:var(--font-mono);color:var(--cyan)">KicksVault Instant Clearing</span></div>
-      <div style="margin-top:4px">Status: <span style="color:var(--emerald)">High-Availability Rail</span></div>
     `;
+    setupBankListeners();
   }
   lucide.createIcons();
+}
+
+function setupPillListeners() {
+  document.querySelectorAll('.rzp-app-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('.rzp-app-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+    });
+  });
+}
+
+function setupBankListeners() {
+  document.querySelectorAll('.rzp-bank-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.rzp-bank-card').forEach(c => {
+        c.classList.remove('active');
+        const icon = c.querySelector('i');
+        if (icon) {
+          icon.setAttribute('data-lucide', 'circle');
+          icon.style.color = 'var(--text-muted)';
+        }
+      });
+      card.classList.add('active');
+      const icon = card.querySelector('i');
+      if (icon) {
+        icon.setAttribute('data-lucide', 'check-circle');
+        icon.style.color = 'var(--emerald)';
+      }
+      lucide.createIcons();
+    });
+  });
 }
 
 function openRazorpaySandboxModal(checkoutData) {
@@ -737,7 +805,6 @@ function openRazorpaySandboxModal(checkoutData) {
   const orderId = document.getElementById('rzp-item-order-id');
   const price = document.getElementById('rzp-item-price');
   const btnAmount = document.getElementById('rzp-btn-amount');
-  const loc = document.getElementById('rzp-item-location');
 
   if (img) img.src = prod.image || 'https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=200&q=80';
   if (name) name.textContent = prod.name || checkoutData.product_id;
@@ -745,7 +812,11 @@ function openRazorpaySandboxModal(checkoutData) {
   const formattedPrice = `₹${Number(checkoutData.amount).toLocaleString('en-IN')}`;
   if (price) price.textContent = formattedPrice;
   if (btnAmount) btnAmount.textContent = formattedPrice;
-  if (loc) loc.textContent = `📍 ${userDeliveryLocation}`;
+
+  // Reset to UPI by default
+  document.querySelectorAll('.rzp-method-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-rzp-upi')?.classList.add('active');
+  updateRazorpayMethodUI('upi');
 
   if (modal) modal.style.display = 'flex';
   lucide.createIcons();
@@ -754,6 +825,142 @@ function openRazorpaySandboxModal(checkoutData) {
 function closeRazorpaySandboxModal() {
   const modal = document.getElementById('razorpay-modal');
   if (modal) modal.style.display = 'none';
+}
+
+async function executeRealPaymentSimulation(type) {
+  if (!currentCheckout) return;
+  const endpoint = type === 'success' ? '/api/simulate-payment' : '/api/simulate-failure';
+  const orderId = currentCheckout.order_id || `order_chat_${Date.now()}`;
+  const amount = Number(currentCheckout.amount);
+  const productId = currentCheckout.product_id;
+  const custId = currentUser.user_id || `cust_${sessionId.slice(-6)}`;
+
+  logTerminal('info', `[SIMULATION] Triggering ${type.toUpperCase()} → ${endpoint}`);
+  logTerminal('info', `[PAYLOAD] order_id: ${orderId} | amount: ₹${amount} | destination: ${userDeliveryLocation}`);
+
+  try {
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Dev-Token': DEV_TOKEN },
+      body: JSON.stringify({
+        order_id: orderId,
+        amount: amount,
+        product_id: productId,
+        customer_id: custId
+      })
+    });
+
+    const data = await resp.json();
+    if (resp.ok) {
+      if (type === 'success') {
+        logTerminal('ok', `[WEBHOOK RECEIVED] POST /api/webhook/razorpay · 200 OK`);
+        logTerminal('ok', `[EVENT] payment_link.paid · ID: ${orderId}`);
+        logTerminal('ok', `[HMAC-SHA256] ${data.verified_hmac}`);
+        logTerminal('ok', `[SIGNATURE CHECK] ✓ 100% CRYPTOGRAPHIC MATCH`);
+        logTerminal('ok', `[LEDGER UPDATED] ${orderId} → STATUS: PAID`);
+        logTerminal('dim', `─────────────────────────────────────`);
+
+        logMini(`[PAID] ₹${amount.toLocaleString('en-IN')} · HMAC Verified`);
+
+        // Render confirmed receipt card in chat
+        renderPaymentSuccessCard(orderId, amount, productId, data.verified_hmac);
+
+        // Notify AI
+        setTimeout(() => {
+          appendAgent(`🎉 **Payment Confirmed!** Your deposit of **₹${amount.toLocaleString('en-IN')}** has been verified on the Razorpay blockchain rails. Order **\`${orderId}\`** is locked and deadstock physical authentication is in progress for delivery to **📍 ${userDeliveryLocation}**.`);
+        }, 500);
+
+      } else {
+        logTerminal('fail', `[WEBHOOK RECEIVED] POST /api/webhook/razorpay · 200 OK`);
+        logTerminal('fail', `[EVENT] payment_link.failed · ID: ${orderId}`);
+        logTerminal('fail', `[REASON] bank_transaction_timeout (BAD_REQUEST_PAYMENT_TIMED_OUT)`);
+        logTerminal('ok',   `[HMAC-SHA256] ${data.verified_hmac}`);
+        logTerminal('warn', `[AGENT RECOVERY] LangGraph failure recovery triggered for ${sessionId}`);
+        logTerminal('dim', `─────────────────────────────────────`);
+
+        logMini(`[FAILED] Bank Timeout · Recovery Active`);
+
+        appendSystem(`⚠️ Payment Notice: Bank gateway timed out for ${orderId}. Initializing AI recovery.`);
+
+        // Trigger AI Recovery Workflow
+        setTimeout(async () => {
+          try {
+            const r = await fetch('/api/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                message: "My payment failed due to bank timeout. Can you help?",
+                session_id: sessionId,
+                location: userDeliveryLocation,
+                history: chatHistory
+              })
+            });
+            if (r.ok) {
+              const resData = await r.json();
+              appendAgent(resData.reply);
+              if (resData.checkout_url) {
+                renderCheckoutCard(resData);
+              }
+            }
+          } catch (_) {}
+        }, 800);
+      }
+
+      await pollOrders();
+    } else {
+      appendSystem(`⚠ Simulation error: ${data.detail}`);
+    }
+  } catch (err) {
+    appendSystem(`⚠ Network error during simulation: ${err.message}`);
+  }
+}
+
+function renderPaymentSuccessCard(orderId, amount, productId, hmacSig) {
+  const msgs = document.getElementById('chat-messages');
+  if (!msgs) return;
+
+  const prod = PRODUCTS[productId] || {};
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-wrap-agent';
+  wrap.innerHTML = `
+    <div class="agent-avatar" style="width:32px;height:32px;border-radius:8px;background:var(--emerald);display:flex;align-items:center;justify-content:center;color:#000">
+      <i data-lucide="check" style="width:16px;height:16px"></i>
+    </div>
+    <div style="background:rgba(18,18,22,0.95);border:1px solid rgba(52,211,153,0.3);border-radius:14px;padding:16px;max-width:380px;box-shadow:0 8px 32px rgba(52,211,153,0.15)">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <span class="status-dot" style="background:var(--emerald)"></span>
+        <span style="font-size:12px;font-weight:800;color:var(--emerald);letter-spacing:0.04em">RAZORPAY ORDER RECEIPT</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <img src="${prod.image || ''}" style="width:40px;height:40px;border-radius:8px;object-fit:cover"/>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary)">${esc(prod.name || productId)}</div>
+          <div style="font-size:10px;color:var(--text-secondary)">Order ID: <span style="font-family:var(--font-mono);color:var(--indigo-bright)">${orderId}</span></div>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:10px;font-size:11px;display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:var(--text-muted)">Amount Captured:</span>
+          <span style="font-weight:800;color:var(--emerald)">₹${Number(amount).toLocaleString('en-IN')}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:var(--text-muted)">HMAC SHA-256:</span>
+          <span style="font-family:var(--font-mono);color:var(--cyan)">${hmacSig ? hmacSig.slice(0, 16) + '…' : 'Verified ✓'}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:var(--text-muted)">Delivery To:</span>
+          <span style="color:var(--text-primary)">📍 ${esc(userDeliveryLocation)}</span>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--emerald);font-weight:600;display:flex;align-items:center;gap:4px">
+        <i data-lucide="shield-check" style="width:13px;height:13px"></i>
+        Deadstock NFC Authentication Tag Registered
+      </div>
+    </div>
+  `;
+  msgs.appendChild(wrap);
+  scrollBottom(msgs);
+  lucide.createIcons();
 }
 
 async function sendMessage() {

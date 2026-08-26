@@ -773,29 +773,24 @@
     <div style="margin-bottom:16px">
       <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Select Payment Mode</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-        <button class="rzp-method-btn active" data-method="upi" style="padding:10px 8px;border-radius:10px;background:rgba(99,102,241,0.15);border:1px solid var(--indigo);color:#fff;font-size:11px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer">
-          <i data-lucide="smartphone" style="width:16px;height:16px;color:var(--indigo-bright)"></i>
+        <button class="rzp-method-btn active" data-method="upi" id="tab-rzp-upi">
+          <i data-lucide="smartphone" style="width:16px;height:16px"></i>
           <span>UPI / QR</span>
         </button>
-        <button class="rzp-method-btn" data-method="card" style="padding:10px 8px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);color:var(--text-secondary);font-size:11px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer">
+        <button class="rzp-method-btn" data-method="card" id="tab-rzp-card">
           <i data-lucide="credit-card" style="width:16px;height:16px"></i>
           <span>Card</span>
         </button>
-        <button class="rzp-method-btn" data-method="netbanking" style="padding:10px 8px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);color:var(--text-secondary);font-size:11px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer">
+        <button class="rzp-method-btn" data-method="netbanking" id="tab-rzp-netbanking">
           <i data-lucide="landmark" style="width:16px;height:16px"></i>
           <span>NetBanking</span>
         </button>
       </div>
     </div>
 
-    <!-- Payment Mode Details -->
-    <div id="rzp-method-content" style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:18px;font-size:11px;color:var(--text-secondary)">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        <i data-lucide="check" style="width:12px;height:12px;color:var(--emerald)"></i>
-        <span style="color:var(--text-primary);font-weight:600">Simulated Instant UPI Transfer</span>
-      </div>
-      <div>Virtual VPA: <span style="font-family:var(--font-mono);color:var(--cyan)">collector@okhdfcbank</span></div>
-      <div style="margin-top:4px">Destination: <span id="rzp-item-location" style="color:var(--text-primary)">📍 India</span></div>
+    <!-- Payment Mode Dynamic Content -->
+    <div id="rzp-method-content" style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:18px">
+      <!-- Populated dynamically by updateRazorpayMethodUI() -->
     </div>
 
     <!-- Actions -->
