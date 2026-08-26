@@ -47,6 +47,7 @@ const BADGE_COLORS = {
 let sessionId = generateSessionId();
 let currentCheckout = null;
 let isSending = false;
+let chatHistory = [];
 const DEV_TOKEN = 'dev-secret-token-razorpay-agentic-2026';
 
 let userDeliveryLocation = localStorage.getItem('kv_delivery_location') || 'India (Standard Courier)';
@@ -198,6 +199,7 @@ async function resetSession() {
   } catch (_) {}
   sessionId = generateSessionId();
   currentCheckout = null;
+  chatHistory = [];
   updateSessionUI();
   resetChatUI();
   setSentinel('idle');
@@ -388,11 +390,16 @@ async function sendMessage() {
       body: JSON.stringify({
         message: text,
         session_id: sessionId,
-        location: userDeliveryLocation
+        location: userDeliveryLocation,
+        history: chatHistory
       })
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
+
+    // Maintain multi-turn conversation memory
+    chatHistory.push({ role: 'user', content: text });
+    chatHistory.push({ role: 'assistant', content: data.reply });
 
     hideTyping();
     appendAgent(data.reply);

@@ -65,6 +65,7 @@ class ChatRequest(BaseModel):
     message: str
     session_id: str
     location: Optional[str] = None
+    history: Optional[List[Dict[str, str]]] = None
 
 class ChatResponse(BaseModel):
     reply: str
@@ -146,6 +147,21 @@ async def chat_endpoint(req: ChatRequest):
             }
             _sessions[req.session_id] = state
 
+        # If client provided historical messages, reconstruct multi-turn context
+        if req.history:
+            reconstructed: List[BaseMessage] = []
+            for h in req.history:
+                role = str(h.get("role", "")).lower()
+                content = str(h.get("content", ""))
+                if not content:
+                    continue
+                if role in ["user", "human"]:
+                    reconstructed.append(HumanMessage(content=content))
+                elif role in ["assistant", "ai", "bot"]:
+                    reconstructed.append(AIMessage(content=content))
+            if reconstructed:
+                state["messages"] = reconstructed
+
         if req.location and not state.get("delivery_location"):
             state["delivery_location"] = req.location
 
@@ -154,6 +170,7 @@ async def chat_endpoint(req: ChatRequest):
             state["failure_recovery"] = True
             state["order_id"] = _last_failed.pop(req.session_id)
 
+        # Append latest user turn
         state.setdefault("messages", []).append(HumanMessage(content=req.message))
 
         # If failure recovery is flagged, run recovery node before sales

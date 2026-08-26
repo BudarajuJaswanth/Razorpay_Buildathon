@@ -131,36 +131,40 @@ def _detect_closing_price(text: str) -> Optional[float]:
 
 
 def _ensure_system_prompt(state: AgentState) -> None:
-    """Inject system prompt with catalog summary, strict confidentiality, margin protection, and delivery location collection."""
-    if not any(isinstance(m, SystemMessage) for m in state.get("messages", [])):
-        cat = get_catalog_summary()
-        loc_context = f"Customer Destination: {state.get('delivery_location', 'Not specified yet')}"
-        system_content = f"""You are a luxury sneaker concierge and master merchant for KicksVault India — the premier authenticated deadstock sneaker exchange.
+    """Inject or update system prompt with catalog summary, strict confidentiality, margin protection, and delivery location collection."""
+    cat = get_catalog_summary()
+    loc_context = f"Customer Destination: {state.get('delivery_location', 'Not specified yet')}"
+    system_content = f"""You are a luxury sneaker concierge and master merchant for KicksVault India — the premier authenticated deadstock sneaker exchange.
 
 CATALOG (source of truth):
 {cat}
 {loc_context}
 
-CRITICAL CONFIDENTIALITY & FRAMING RULES:
-1. NEVER REVEAL INTERNAL METRICS: NEVER mention internal cost metrics, margins, markup, reserve pricing, guardrails, or the term "floor price" to the customer.
-2. LUXURY FRAMING: Frame ALL pricing, counter-offers, and firm boundaries exclusively in terms of premium craftsmanship, limited stock rarity, tamper-evident physical NFC authentication, deadstock collector appreciation, and exclusive goodwill VIP savings.
-3. STAGE 1 (Inquiry / First Offer): Anchor firmly at the retail price. Highlight craftsmanship, physical verification, and limited stock count. You may extend AT MOST a 2% goodwill VIP discount OR a complimentary CreaseGuard Care Kit (PROD_004, value ₹1,499).
-4. STAGE 2 (Buyer Bargains / Pushes Back): If the customer pushes back on price, counter with the Stage-2 courtesy price (at most 5% off retail) as our absolute best collector privilege offer. Frame this as a special goodwill courtesy given the rising secondary market value.
-5. STAGE 3 (Deal Closing & Immediate Intent): If the buyer agrees to buy or makes a firm immediate offer (at or above our authorized reserve), confirm the locked-in price, ensure delivery location is noted, and emit EXACTLY:
+CRITICAL CONVERSATIONAL MEMORY & FRAMING RULES:
+1. FULL CONVERSATIONAL MEMORY: Maintain complete awareness of the entire chat history. Remember all previously discussed sneakers, prices quoted, customer preferences, questions asked, and locations shared. Never ask the customer to repeat information they already gave.
+2. NEVER REVEAL INTERNAL METRICS: NEVER mention internal cost metrics, margins, markup, reserve pricing, guardrails, or the term "floor price" to the customer.
+3. LUXURY FRAMING: Frame ALL pricing, counter-offers, and firm boundaries exclusively in terms of premium craftsmanship, limited stock rarity, tamper-evident physical NFC authentication, deadstock collector appreciation, and exclusive goodwill VIP savings.
+4. STAGE 1 (Inquiry / First Offer): Anchor firmly at the retail price. Highlight craftsmanship, physical verification, and limited stock count. You may extend AT MOST a 2% goodwill VIP discount OR a complimentary CreaseGuard Care Kit (PROD_004, value ₹1,499).
+5. STAGE 2 (Buyer Bargains / Pushes Back): If the customer pushes back on price, counter with the Stage-2 courtesy price (at most 5% off retail) as our absolute best collector privilege offer. Frame this as a special goodwill courtesy given the rising secondary market value.
+6. STAGE 3 (Deal Closing & Immediate Intent): If the buyer agrees to buy or makes a firm immediate offer (at or above our authorized reserve), confirm the locked-in price, ensure delivery location is noted, and emit EXACTLY:
    [ACTION:CREATE_PAYMENT | product_id: <PRODUCT_ID> | price: <PRICE>]
-6. SUB-RESERVE OFFERS: If a buyer demands a price below our authorized reserve, decline with utmost courtesy. Explain that due to extreme scarcity, verified deadstock condition, and certified collector provenance, we cannot part with this pair at that price point. Present our best courtesy offer instead. Never mention a "floor" or "minimum limit".
-7. DELIVERY LOCATION: Ask or confirm the buyer's delivery destination/city in India (e.g., "Where in India should we dispatch your vault-authenticated pair?"). Acknowledge priority insured courier dispatch.
-8. TONE: Sophisticated, knowledgeable, firm on value, hospitable. Always format prices with the ₹ symbol.
+7. SUB-RESERVE OFFERS: If a buyer demands a price below our authorized reserve, decline with utmost courtesy. Explain that due to extreme scarcity, verified deadstock condition, and certified collector provenance, we cannot part with this pair at that price point. Present our best courtesy offer instead. Never mention a "floor" or "minimum limit".
+8. DELIVERY LOCATION: Ask or confirm the buyer's delivery destination/city in India (e.g., "Where in India should we dispatch your vault-authenticated pair?"). Acknowledge priority insured courier dispatch.
+9. TONE: Sophisticated, knowledgeable, firm on value, hospitable. Always format prices with the ₹ symbol.
 """
-        state.setdefault("messages", []).insert(0, SystemMessage(content=system_content))
+    messages = state.get("messages", [])
+    if messages and isinstance(messages[0], SystemMessage):
+        messages[0] = SystemMessage(content=system_content)
+    else:
+        messages.insert(0, SystemMessage(content=system_content))
+    state["messages"] = messages
 
 
 # ---------- Nodes ----------
 def sales_node(state: AgentState) -> AgentState:
-    """Main conversational sales agent node with 3-stage negotiation logic."""
+    """Main conversational sales agent node with multi-turn memory and 3-stage negotiation logic."""
     _ensure_system_prompt(state)
 
-    # Determine current negotiation stage
     stage = state.get("negotiation_stage", 0)
     messages = state.get("messages", [])
 
@@ -171,14 +175,17 @@ def sales_node(state: AgentState) -> AgentState:
             last_human = _extract_content_text(m.content)
             break
 
-    if last_human:
-        # Try to detect product if none selected yet
-        if not state.get("selected_product_id"):
-            detected = _detect_product_from_message(last_human)
-            if detected:
-                state["selected_product_id"] = detected
-                if stage == 0:
-                    state["negotiation_stage"] = 1
+    # Scan historical messages to retain selected product context if not already set
+    if not state.get("selected_product_id"):
+        for m in reversed(messages):
+            if isinstance(m, HumanMessage):
+                txt = _extract_content_text(m.content)
+                detected = _detect_product_from_message(txt)
+                if detected:
+                    state["selected_product_id"] = detected
+                    if stage == 0:
+                        state["negotiation_stage"] = 1
+                    break
 
         prod_id = state.get("selected_product_id")
 
