@@ -35,11 +35,25 @@ class AgentState(TypedDict, total=False):
     failure_recovery: bool          # True when triggered by payment.failed
 
 # ---------- LLM Initialization ----------
+groq_api_key = os.getenv("GROQ_API_KEY")
+groq_model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+
+# Guarded ChatGroq initialization
 llm = ChatGroq(
-    model="openai/gpt-oss-120b",
-    api_key=os.getenv("GROQ_API_KEY"),
+    model=groq_model,
+    groq_api_key=groq_api_key,
     temperature=0.3
 )
+
+
+def extract_agent_response(state_messages: List[BaseMessage]) -> str:
+    """Safely extract the textual reply from agent state messages."""
+    for msg in reversed(state_messages):
+        if isinstance(msg, AIMessage) and msg.content:
+            return _extract_content_text(msg.content)
+        elif hasattr(msg, "content") and getattr(msg, "type", "") == "ai":
+            return _extract_content_text(msg.content)
+    return "I'm here to help! Which grail sneaker or product are you interested in today?"
 
 # ---------- Intent Detection Patterns ----------
 # Stage 3 – buyer signals immediate purchase intent

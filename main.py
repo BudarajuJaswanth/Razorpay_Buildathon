@@ -26,12 +26,14 @@ from guardrails import CATALOG, get_catalog_summary
 
 _AGENT_IMPORT_ERROR: str | None = None
 try:
-    from agent import graph_app, AgentState, failure_recovery_node
+    from agent import graph_app, AgentState, failure_recovery_node, extract_agent_response
 except Exception as _e:
     _AGENT_IMPORT_ERROR = str(_e)
     graph_app = None  # type: ignore
     AgentState = dict  # type: ignore
     failure_recovery_node = None  # type: ignore
+    def extract_agent_response(msgs):  # type: ignore
+        return "I'm here to help! Which grail sneaker or product are you interested in today?"
 
 
 app = FastAPI(title="KicksVault India — Razorpay Agentic Commerce API")
@@ -70,6 +72,8 @@ class ChatResponse(BaseModel):
     agreed_price: Optional[float] = None
     negotiation_stage: int = 0
     product_id: Optional[str] = None
+    session_id: Optional[str] = None
+    error: Optional[str] = None
 
 class SimulationRequest(BaseModel):
     order_id: str
@@ -112,65 +116,69 @@ async def root_index():
 # ----- Chat Endpoint -----
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
-    if _AGENT_IMPORT_ERROR or graph_app is None:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Agent unavailable — check GROQ_API_KEY env var. Error: {_AGENT_IMPORT_ERROR}"
-        )
-    state = _sessions.get(req.session_id)
-    if not state:
-        state = {
-            "messages": [],
-            "customer_id": f"cust_{req.session_id[-6:]}",
-            "negotiation_stage": 0,
-        }
+    try:
+        if _AGENT_IMPORT_ERROR or graph_app is None:
+            return ChatResponse(
+                reply=f"⚠️ Agent Notice: We encountered a temporary connection glitch ({_AGENT_IMPORT_ERROR or 'Agent graph not loaded'}). Please verify GROQ_API_KEY.",
+                session_id=req.session_id,
+                error=str(_AGENT_IMPORT_ERROR)
+            )
+
+        state = _sessions.get(req.session_id)
+        if not state:
+            state = {
+                "messages": [],
+                "customer_id": f"cust_{req.session_id[-6:]}",
+                "negotiation_stage": 0,
+            }
+            _sessions[req.session_id] = state
+
+        # Check if there's a pending failure recovery for this session
+        if _last_failed.get(req.session_id):
+            state["failure_recovery"] = True
+            state["order_id"] = _last_failed.pop(req.session_id)
+
+        state.setdefault("messages", []).append(HumanMessage(content=req.message))
+
+        # If failure recovery is flagged, run recovery node before sales
+        if state.get("failure_recovery"):
+            state = failure_recovery_node(state)
+            _sessions[req.session_id] = state
+            reply_text = extract_agent_response(state.get("messages", []))
+            return ChatResponse(
+                reply=reply_text,
+                checkout_url=state.get("checkout_url"),
+                guardrail_triggered=state.get("guardrail_triggered", False),
+                agreed_price=state.get("agreed_price"),
+                negotiation_stage=state.get("negotiation_stage", 0),
+                product_id=state.get("product_id"),
+                session_id=req.session_id,
+            )
+
+        # Invoke the LangGraph agent
+        state = graph_app.invoke(state)
         _sessions[req.session_id] = state
 
-    # Check if there's a pending failure recovery for this session
-    if _last_failed.get(req.session_id):
-        state["failure_recovery"] = True
-        state["order_id"] = _last_failed.pop(req.session_id)
+        reply_text = extract_agent_response(state.get("messages", []))
 
-    state.setdefault("messages", []).append(HumanMessage(content=req.message))
-
-    # If failure recovery is flagged, run recovery node before sales
-    if state.get("failure_recovery"):
-        state = failure_recovery_node(state)
-        _sessions[req.session_id] = state
-        ai_msg = state["messages"][-1]
         return ChatResponse(
-            reply=ai_msg.content,
+            reply=reply_text,
             checkout_url=state.get("checkout_url"),
             guardrail_triggered=state.get("guardrail_triggered", False),
             agreed_price=state.get("agreed_price"),
             negotiation_stage=state.get("negotiation_stage", 0),
             product_id=state.get("product_id"),
+            session_id=req.session_id,
         )
-
-    state = graph_app.invoke(state)
-    _sessions[req.session_id] = state
-
-    # Find the last AIMessage (graph may append extra routing messages)
-    ai_msg = None
-    for msg in reversed(state.get("messages", [])):
-        if isinstance(msg, AIMessage):
-            ai_msg = msg
-            break
-
-    if ai_msg is None:
-        raise HTTPException(status_code=500, detail="Agent did not produce a reply")
-
-    # Safely encode content (handles special Unicode from LLM)
-    reply_text = str(ai_msg.content)
-
-    return ChatResponse(
-        reply=reply_text,
-        checkout_url=state.get("checkout_url"),
-        guardrail_triggered=state.get("guardrail_triggered", False),
-        agreed_price=state.get("agreed_price"),
-        negotiation_stage=state.get("negotiation_stage", 0),
-        product_id=state.get("product_id"),
-    )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return ChatResponse(
+            reply=f"⚠️ Agent Notice: We encountered a temporary connection glitch ({str(e)}). Please verify GROQ_API_KEY or retry.",
+            session_id=req.session_id,
+            error=str(e),
+            negotiation_stage=0,
+        )
 
 # ----- Session Reset -----
 @app.post("/api/reset-session")
