@@ -21,22 +21,22 @@ const PRODUCTS = {
     desc: 'Sleek all-black monochrome silhouette with full-length re-engineered Boost cushioning.'
   },
   PROD_003: {
-    name: "Nike Dunk Low 'Panda'",
+    name: "Nike Dunk Low Retro 'Panda'",
     image: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=800&q=80',
     price: 11999, floor: 9999, stock: 7,
     badges: [['Street Icon', 'cyan'], ['In Stock', 'emerald']],
     desc: "The timeless two-tone monochrome dunk — a certified collector's daily staple."
   },
   PROD_004: {
-    name: 'CreaseGuard Pro Care & Shield Kit',
+    name: 'CreaseGuard Pro Care & Sneaker Shield Kit',
     image: 'https://images.unsplash.com/photo-1607522370275-f14206abe5d3?auto=format&fit=crop&w=800&q=80',
     price: 1499, floor: 999, stock: 25,
     badges: [['Essential Addon', 'amber']],
     desc: 'Hydro-repellent shields, natural horsehair brush, and enzymatic foam. Protect your grails.'
   },
   PROD_005: {
-    name: "Travis Scott x Air Jordan 1 Low 'Reverse Mocha'",
-    image: 'https://images.unsplash.com/photo-1514989940723-e8e51635b782?auto=format&fit=crop&w=800&q=80',
+    name: "Travis Scott x AJ1 Low 'Reverse Mocha'",
+    image: 'https://images.unsplash.com/photo-1512374382149-233c42b6a83b?auto=format&fit=crop&w=800&q=80',
     price: 89999, floor: 82000, stock: 1,
     badges: [['Holy Grail', 'red'], ['NFC Verified', 'emerald']],
     desc: 'Sail and Ridgerock nubuck upper with Cactus Jack oversized backward Swoosh embroidery.'
@@ -50,17 +50,17 @@ const PRODUCTS = {
   },
   PROD_007: {
     name: "Air Jordan 4 Retro 'Military Black'",
-    image: 'https://images.unsplash.com/photo-1515955656352-a1fa3ffcd111?auto=format&fit=crop&w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1575537302964-96cd47c06b1b?auto=format&fit=crop&w=800&q=80',
     price: 34999, floor: 30500, stock: 3,
     badges: [['Vault Heat', 'red'], ['Deadstock', 'emerald']],
     desc: 'Clean white leather with neutral grey suede toe-wrap and contrasting black TPU eyelets.'
   },
   PROD_008: {
-    name: 'KicksVault Premium Wooden Sneaker Crate',
-    image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=800&q=80',
+    name: 'KicksVault Premium Acrylic Sneaker Crate',
+    image: 'https://images.unsplash.com/photo-1582588678413-dbf45f4823e9?auto=format&fit=crop&w=800&q=80',
     price: 3999, floor: 2800, stock: 15,
-    badges: [['Cedarwood', 'amber'], ['LED Light', 'indigo']],
-    desc: 'Handcrafted display vault with UV-filtering acrylic magnetic door and spotlighting.'
+    badges: [['Display Vault', 'amber'], ['LED Ready', 'indigo']],
+    desc: 'Handcrafted display vault with UV-filtering magnetic door and integrated LED spotlighting.'
   }
 };
 
@@ -79,6 +79,15 @@ let isSending = false;
 let chatHistory = [];
 const DEV_TOKEN = 'dev-secret-token-razorpay-agentic-2026';
 
+let currentUser = JSON.parse(localStorage.getItem('kv_user') || 'null') || {
+  user_id: 'usr_collector',
+  role: 'user',
+  name: 'Verified Collector',
+  email: 'collector@kicksvault.in',
+  avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+  token: 'guest_token'
+};
+
 let userDeliveryLocation = localStorage.getItem('kv_delivery_location') || 'India (Standard Courier)';
 
 function generateSessionId() {
@@ -93,6 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initClock();
   initSession();
   initLocation();
+  initAuth();
   initNav();
   initChat();
   initHUD();
@@ -104,10 +114,88 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================
-//  MERCHANT INVENTORY & STOCK CONTROLLER
+//  AUTHENTICATION & RBAC (USER VS. ADMIN)
 // ============================================================
-function initInventoryManager() {
-  renderInventoryTable();
+function initAuth() {
+  updateAuthUI();
+
+  document.getElementById('user-profile-pill')?.addEventListener('click', openAuthModal);
+  document.getElementById('btn-auth-trigger')?.addEventListener('click', openAuthModal);
+  document.getElementById('btn-close-auth')?.addEventListener('click', closeAuthModal);
+
+  document.getElementById('btn-login-customer')?.addEventListener('click', () => {
+    loginAs('user', 'Verified Collector', 'collector@kicksvault.in');
+  });
+
+  document.getElementById('btn-login-admin')?.addEventListener('click', () => {
+    loginAs('admin', 'Merchant Administrator', 'admin@kicksvault.in');
+  });
+
+  document.getElementById('btn-google-signin')?.addEventListener('click', () => {
+    loginAs('user', 'Google User (Collector)', 'google.user@kicksvault.in');
+  });
+}
+
+function openAuthModal() {
+  const modal = document.getElementById('auth-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeAuthModal() {
+  const modal = document.getElementById('auth-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function loginAs(role, name, email) {
+  try {
+    const resp = await fetch('/api/auth/demo-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role, name, email })
+    });
+    if (resp.ok) {
+      const user = await resp.json();
+      currentUser = user;
+      localStorage.setItem('kv_user', JSON.stringify(currentUser));
+      updateAuthUI();
+      closeAuthModal();
+      logTerminal('ok', `[AUTH] Signed in as: ${user.name} (${user.role.toUpperCase()})`);
+    }
+  } catch (err) {
+    currentUser = {
+      user_id: `usr_${role}`,
+      role: role,
+      name: name,
+      email: email,
+      avatar: role === 'admin' 
+        ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'
+        : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+      token: 'local_token'
+    };
+    localStorage.setItem('kv_user', JSON.stringify(currentUser));
+    updateAuthUI();
+    closeAuthModal();
+  }
+}
+
+function updateAuthUI() {
+  const nameEl = document.getElementById('user-display-name');
+  const roleBadge = document.getElementById('user-role-badge');
+  const avatarEl = document.getElementById('user-avatar');
+  const merchantLock = document.getElementById('tab-merchant-lock');
+
+  if (nameEl) nameEl.textContent = currentUser.name.split(' ')[0];
+  if (avatarEl) avatarEl.src = currentUser.avatar;
+
+  if (roleBadge) {
+    roleBadge.textContent = currentUser.role.toUpperCase();
+    roleBadge.className = currentUser.role === 'admin' ? 'role-badge-admin' : 'role-badge-user';
+  }
+
+  if (merchantLock) {
+    merchantLock.style.display = currentUser.role === 'admin' ? 'none' : 'inline';
+  }
+}
 
   document.getElementById('btn-toggle-add-product')?.addEventListener('click', () => {
     const panel = document.getElementById('add-product-panel');
@@ -508,106 +596,20 @@ function initNav() {
 }
 
 function showPage(pageId) {
+  if (pageId === 'page-merchant' && currentUser.role !== 'admin') {
+    const confirmSwitch = confirm("🛡️ Merchant HUD is an Admin-only view.\n\nWould you like to switch to Merchant Administrator mode to inspect live telemetry, stock controls, and payment simulators?");
+    if (confirmSwitch) {
+      loginAs('admin', 'Merchant Administrator', 'admin@kicksvault.in');
+    } else {
+      return;
+    }
+  }
+
   document.querySelectorAll('.page').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(pageId)?.classList.add('active');
   document.querySelector(`[data-target="${pageId}"]`)?.classList.add('active');
   setTimeout(() => lucide.createIcons(), 60);
-}
-
-// ============================================================
-//  PRODUCT GRID
-// ============================================================
-function renderProductGrid() {
-  const grid = document.getElementById('product-grid');
-  if (!grid) return;
-  grid.innerHTML = '';
-
-  // Fetch from API to stay in sync
-  fetch('/api/catalog')
-    .then(r => r.json())
-    .then(catalog => {
-      Object.entries(catalog).forEach(([prodId, prod]) => {
-        const local = PRODUCTS[prodId] || {};
-        const image = local.image || 'https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=800&q=80';
-        const badges = local.badges || [['In Stock', 'emerald']];
-        const stage1 = Math.round(prod.retail_price * 0.98);
-
-        const card = document.createElement('div');
-        card.className = 'product-card';
-
-        const badgeHtml = badges.map(([label, color]) => {
-          const c = BADGE_COLORS[color] || BADGE_COLORS.emerald;
-          return `<span style="background:${c.bg};color:${c.color};border:1px solid ${c.border};padding:3px 9px;border-radius:99px;font-size:9px;font-weight:800;letter-spacing:0.07em;text-transform:uppercase">${label}</span>`;
-        }).join('');
-
-        card.innerHTML = `
-          <div class="card-img-wrap">
-            <img src="${image}" alt="${prod.name}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80'"/>
-            <div class="card-img-overlay"></div>
-            <div class="card-badges">${badgeHtml}</div>
-          </div>
-          <div class="card-body">
-            <div class="card-id">${prodId}</div>
-            <div class="card-name">${prod.name}</div>
-            <div class="card-desc">${prod.description || (local.desc || '')}</div>
-            <div class="card-footer">
-              <div>
-                <div class="card-price">₹${Number(prod.retail_price).toLocaleString('en-IN')}</div>
-                <div class="card-stock">${prod.stock} in stock · AI VIP ₹${Number(stage1).toLocaleString('en-IN')}</div>
-              </div>
-            </div>
-            <button class="negotiate-btn" data-prod-id="${prodId}">
-              <i data-lucide="bot" style="width:14px;height:14px"></i>
-              Negotiate Deal with AI →
-            </button>
-          </div>`;
-
-        card.querySelector('.negotiate-btn').addEventListener('click', () => seedAndNavigate(prodId, prod.name));
-        grid.appendChild(card);
-      });
-      lucide.createIcons();
-    })
-    .catch(() => {
-      // Fallback: render from local PRODUCTS
-      Object.entries(PRODUCTS).forEach(([prodId, prod]) => {
-        renderLocalCard(grid, prodId, prod);
-      });
-      lucide.createIcons();
-    });
-}
-
-function renderLocalCard(grid, prodId, prod) {
-  const card = document.createElement('div');
-  card.className = 'product-card';
-  const badgeHtml = prod.badges.map(([label, color]) => {
-    const c = BADGE_COLORS[color] || BADGE_COLORS.emerald;
-    return `<span style="background:${c.bg};color:${c.color};border:1px solid ${c.border};padding:3px 9px;border-radius:99px;font-size:9px;font-weight:800;letter-spacing:0.07em;text-transform:uppercase">${label}</span>`;
-  }).join('');
-  const stage1 = Math.round(prod.price * 0.98);
-  card.innerHTML = `
-    <div class="card-img-wrap">
-      <img src="${prod.image}" alt="${prod.name}" loading="lazy"/>
-      <div class="card-img-overlay"></div>
-      <div class="card-badges">${badgeHtml}</div>
-    </div>
-    <div class="card-body">
-      <div class="card-id">${prodId}</div>
-      <div class="card-name">${prod.name}</div>
-      <div class="card-desc">${prod.desc}</div>
-      <div class="card-footer">
-        <div>
-          <div class="card-price">₹${prod.price.toLocaleString('en-IN')}</div>
-          <div class="card-stock">${prod.stock} in stock · AI VIP ₹${stage1.toLocaleString('en-IN')}</div>
-        </div>
-      </div>
-      <button class="negotiate-btn" data-prod-id="${prodId}">
-        <i data-lucide="bot" style="width:14px;height:14px"></i>
-        Negotiate Deal with AI →
-      </button>
-    </div>`;
-  card.querySelector('.negotiate-btn').addEventListener('click', () => seedAndNavigate(prodId, prod.name));
-  grid.appendChild(card);
 }
 
 function seedAndNavigate(prodId, prodName) {

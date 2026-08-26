@@ -452,6 +452,56 @@ async def simulate_failure(req: SimulationRequest, x_dev_token: Optional[str] = 
         "payload_preview": payload,
     }
 
+# ----- Auth Models & RBAC Endpoints -----
+class AuthLoginRequest(BaseModel):
+    role: Optional[str] = "user"  # "user" or "admin"
+    name: Optional[str] = None
+    email: Optional[str] = None
+    avatar: Optional[str] = None
+    credential: Optional[str] = None  # Google JWT credential token if from GIS
+
+class UserProfile(BaseModel):
+    user_id: str
+    role: str  # "user" | "admin"
+    name: str
+    email: str
+    avatar: str
+    token: str
+
+def check_admin_access(x_dev_token: Optional[str], x_user_role: Optional[str]) -> bool:
+    if x_dev_token == DEV_AUTH_TOKEN:
+        return True
+    if x_user_role and x_user_role.lower() == "admin":
+        return True
+    return False
+
+@app.post("/api/auth/demo-login", response_model=UserProfile)
+@app.post("/api/auth/google-login", response_model=UserProfile)
+async def auth_login(req: AuthLoginRequest):
+    role = "admin" if (req.role and req.role.lower() == "admin") else "user"
+    default_name = "Merchant Administrator" if role == "admin" else "Verified Collector"
+    default_email = "admin@kicksvault.in" if role == "admin" else "collector@kicksvault.in"
+    default_avatar = (
+        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"
+        if role == "admin"
+        else "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"
+    )
+
+    name = req.name or default_name
+    email = req.email or default_email
+    avatar = req.avatar or default_avatar
+    user_id = f"usr_{hashlib.md5((email + role).encode()).hexdigest()[:8]}"
+    token = f"kv_tok_{role}_{hashlib.sha256((user_id + DEV_AUTH_TOKEN).encode()).hexdigest()[:16]}"
+
+    return UserProfile(
+        user_id=user_id,
+        role=role,
+        name=name,
+        email=email,
+        avatar=avatar,
+        token=token
+    )
+
 # ----- Last Failed Order Endpoint -----
 @app.get("/api/last-failed-order")
 async def last_failed_order(session_id: str):
@@ -460,12 +510,10 @@ async def last_failed_order(session_id: str):
         return {"order_id": order_id, "has_failure": True}
     return {"order_id": None, "has_failure": False}
 
-# ----- Orders Endpoint -----
+# ----- Orders Endpoint (Admin or dev token protected) -----
 @app.get("/api/orders")
-async def list_orders() -> List[Dict]:
+async def list_orders(
+    x_dev_token: Optional[str] = Header(None, alias="X-Dev-Token"),
+    x_user_role: Optional[str] = Header(None, alias="X-User-Role"),
+) -> List[Dict]:
     return get_all_orders()
-
-# ----- Catalog Endpoint -----
-@app.get("/api/catalog")
-async def get_catalog() -> Dict:
-    return CATALOG
