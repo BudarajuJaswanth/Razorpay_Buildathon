@@ -205,7 +205,10 @@ function updateAuthUI() {
 
   // Toggle Admin-only controls throughout the UI
   document.querySelectorAll('.admin-only-ui').forEach(el => {
-    el.style.display = isAdmin ? 'flex' : 'none';
+    // Use block for div containers, flex only for flex-intended elements
+    const tag = el.tagName.toLowerCase();
+    const defaultDisplay = (tag === 'button' || tag === 'span' || tag === 'a') ? 'flex' : 'block';
+    el.style.display = isAdmin ? defaultDisplay : 'none';
   });
 
   // If regular user was on merchant page, switch to storefront
@@ -1315,8 +1318,51 @@ async function pollOrders() {
   try {
     const resp = await fetch('/api/orders');
     if (!resp.ok) return;
-    renderOrders(await resp.json());
+    const orders = await resp.json();
+    renderOrders(orders);
+    renderMyOrders(orders);
   } catch (_) {}
+}
+
+function renderMyOrders(orders) {
+  const tbody = document.getElementById('my-orders-tbody');
+  if (!tbody) return;
+
+  const STATUS_STYLE = {
+    created: { dot: 'var(--indigo-bright)', label: 'CREATED', textColor: 'var(--indigo-bright)' },
+    paid:    { dot: 'var(--emerald)',       label: 'PAID',    textColor: 'var(--emerald)' },
+    failed:  { dot: 'var(--red)',           label: 'FAILED',  textColor: 'var(--red)' }
+  };
+
+  if (!orders?.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align:center;padding:24px 4px;color:var(--text-muted);font-size:11px">
+          No orders yet — negotiate a deal to get started!
+        </td>
+      </tr>`;
+    return;
+  }
+
+  tbody.innerHTML = orders.slice().reverse().map(o => {
+    const s = STATUS_STYLE[o.status] || STATUS_STYLE.created;
+    const ts = (o.paid_at || o.created_at) ? new Date(o.paid_at || o.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—';
+    const shortId = o.order_id.slice(0, 18) + (o.order_id.length > 18 ? '…' : '');
+    const prod = PRODUCTS[o.product_id] || {};
+    const prodName = prod.name ? prod.name.split(' ').slice(0, 3).join(' ') + '…' : o.product_id;
+    return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+      <td style="padding:8px 4px;color:var(--text-muted);font-family:var(--font-mono);font-size:10px;white-space:nowrap" title="${o.order_id}">${shortId}</td>
+      <td style="padding:8px 4px;color:var(--text-secondary);font-size:10px;white-space:nowrap">${esc(prodName)}</td>
+      <td style="padding:8px 4px;color:var(--text-primary);font-weight:700;white-space:nowrap">₹${Number(o.amount).toLocaleString('en-IN')}</td>
+      <td style="padding:8px 4px;white-space:nowrap">
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:800;letter-spacing:0.06em;color:${s.textColor}">
+          <span style="width:6px;height:6px;border-radius:50%;background:${s.dot};flex-shrink:0"></span>
+          ${s.label}
+        </span>
+      </td>
+      <td style="padding:8px 4px;color:var(--text-muted);font-size:10px;white-space:nowrap">${ts}</td>
+    </tr>`;
+  }).join('');
 }
 
 function renderOrders(orders) {
