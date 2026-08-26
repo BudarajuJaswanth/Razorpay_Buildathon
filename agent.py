@@ -1,7 +1,7 @@
 import os
 import re
 import uuid
-from typing import List, TypedDict, Optional, Dict, Union, Annotated
+from typing import List, TypedDict, Optional, Dict, Union, Annotated, Any
 
 from dotenv import load_dotenv
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
@@ -136,15 +136,36 @@ def _detect_product_from_message(text: str) -> Optional[str]:
     return None
 
 
+def clean_price_float(raw_val: Any) -> float:
+    """Safely extracts a float from any currency string (e.g., '₹33,949', 'INR 33,949.00', '33,949/-', 'Rs. 11,999')."""
+    if isinstance(raw_val, (int, float)):
+        return float(raw_val)
+    if not raw_val:
+        return 0.0
+    s = str(raw_val).strip()
+    m = re.search(r"(\d[\d,]*(?:\.\d+)?)", s)
+    if m:
+        num_str = m.group(1).replace(",", "")
+        try:
+            return float(num_str)
+        except ValueError:
+            pass
+    cleaned = re.sub(r"[^\d.]", "", s)
+    if cleaned:
+        try:
+            return float(cleaned)
+        except ValueError:
+            pass
+    return 0.0
+
+
 def _detect_closing_price(text: str) -> Optional[float]:
     """Extract the buyer's proposed closing price from message text, if present."""
     m = _CLOSING_REGEX.search(text)
     if m:
-        raw = m.group(2).replace(",", "")
-        try:
-            return float(raw)
-        except ValueError:
-            pass
+        price = clean_price_float(m.group(2))
+        if price > 0:
+            return price
     return None
 
 
@@ -299,7 +320,12 @@ def payment_tool_node(state: AgentState) -> AgentState:
     if not tag_match:
         raise ValueError("ACTION tag not found in AI message")
     product_id = tag_match.group("pid").strip()
-    proposed_price = float(tag_match.group("price").strip())
+    raw_price = tag_match.group("price").strip()
+    proposed_price = clean_price_float(raw_price)
+
+    # Fallback to catalog retail if parsing was zero or negative
+    if proposed_price <= 0 and product_id in CATALOG:
+        proposed_price = CATALOG[product_id]["retail_price"]
 
     proposal = PaymentProposal(product_id=product_id, proposed_price=proposed_price)
     final_price = proposal.validate_and_compute_final_price()

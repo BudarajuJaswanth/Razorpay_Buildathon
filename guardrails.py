@@ -1,4 +1,5 @@
-from typing import Dict, Optional
+import re
+from typing import Dict, Optional, Any
 from pydantic import BaseModel, field_validator, ValidationError
 
 # Luxury sneaker catalog for KicksVault India
@@ -92,6 +93,29 @@ class PaymentProposal(BaseModel):
     proposed_price: float
     customer_name: str = "Valued Customer"
     customer_phone: str = "9876543210"
+
+    @field_validator("proposed_price", mode="before")
+    @classmethod
+    def clean_proposed_price(cls, v: Any) -> float:
+        if isinstance(v, (int, float)):
+            return float(v)
+        if isinstance(v, str):
+            s = v.strip()
+            m = re.search(r"(\d[\d,]*(?:\.\d+)?)", s)
+            if m:
+                num_str = m.group(1).replace(",", "")
+                try:
+                    return float(num_str)
+                except ValueError:
+                    pass
+            cleaned = re.sub(r"[^\d.]", "", s)
+            if cleaned:
+                try:
+                    return float(cleaned)
+                except ValueError:
+                    pass
+            raise ValueError(f"Cannot parse price string: '{v}'")
+        raise ValueError(f"Invalid price value type: {type(v)}")
 
     @field_validator("product_id")
     @classmethod
