@@ -7,8 +7,20 @@ from dotenv import load_dotenv
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, END
-from langgraph.graph.message import add_messages
-from langgraph.checkpoint.memory import MemorySaver
+
+try:
+    from langgraph.graph.message import add_messages
+except ImportError:
+    def add_messages(left, right):
+        return (left or []) + (right or [])
+
+try:
+    from langgraph.checkpoint.memory import MemorySaver
+except ImportError:
+    try:
+        from langgraph.checkpoint import MemorySaver
+    except ImportError:
+        MemorySaver = None
 
 # Load environment variables (local .env; on Vercel these come from the dashboard)
 load_dotenv()
@@ -413,8 +425,8 @@ graph.add_edge("failure_recovery", END)
 
 graph.set_entry_point("sales")
 
-memory = MemorySaver()
-graph_app = graph.compile(checkpointer=memory)
+memory = MemorySaver() if MemorySaver is not None else None
+graph_app = graph.compile(checkpointer=memory) if memory is not None else graph.compile()
 
 
 if __name__ == "__main__":
