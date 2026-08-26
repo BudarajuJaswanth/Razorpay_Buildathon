@@ -108,12 +108,30 @@ async def health():
         "razorpay_key_set": bool(os.getenv("RAZORPAY_KEY_ID")),
     }
 
+# ----- Static Assets Direct Handlers -----
+@app.get("/static/style.css")
+@app.get("/style.css")
+async def serve_css():
+    css_path = os.path.join(PROJECT_ROOT, "static", "style.css")
+    if os.path.isfile(css_path):
+        return FileResponse(css_path, media_type="text/css")
+    raise HTTPException(status_code=404, detail="CSS not found")
+
+@app.get("/static/app.js")
+@app.get("/app.js")
+async def serve_js():
+    js_path = os.path.join(PROJECT_ROOT, "static", "app.js")
+    if os.path.isfile(js_path):
+        return FileResponse(js_path, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="JS not found")
+
 # ----- Root -----
 @app.get("/")
+@app.get("/index.html")
 async def root_index():
     index_path = os.path.join(PROJECT_ROOT, "static", "index.html")
     if os.path.isfile(index_path):
-        return FileResponse(index_path)
+        return FileResponse(index_path, media_type="text/html")
     return {"status": "ok", "message": "KicksVault India API — Static UI not found"}
 
 # ----- Chat Endpoint -----
