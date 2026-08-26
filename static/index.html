@@ -735,6 +735,84 @@
   </div>
 </section>
 
+<!-- ============================================================
+     RAZORPAY SANDBOX CHECKOUT MODAL
+     ============================================================ -->
+<div id="razorpay-modal" class="auth-overlay" style="display:none">
+  <div class="auth-card" style="max-width:480px;text-align:left">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:32px;height:32px;border-radius:8px;background:#0c2340;display:flex;align-items:center;justify-content:center;border:1px solid #1a365d">
+          <i data-lucide="zap" style="width:16px;height:16px;color:#3395ff"></i>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#fff;letter-spacing:-0.01em">Razorpay Sandbox Gateway</div>
+          <div style="font-size:10px;color:var(--emerald);font-family:var(--font-mono)">● 256-Bit Encrypted Testnet</div>
+        </div>
+      </div>
+      <button id="btn-close-rzp" class="btn-ghost btn-sm" style="padding:4px 8px;font-size:12px">✕</button>
+    </div>
+
+    <!-- Order Item Summary -->
+    <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:16px">
+      <img id="rzp-item-img" src="" alt="Sneaker" style="width:48px;height:48px;border-radius:8px;object-fit:cover;border:1px solid rgba(255,255,255,0.1)"/>
+      <div style="flex:1">
+        <div id="rzp-item-name" style="font-size:12px;font-weight:700;color:var(--text-primary)">Air Jordan 1 High OG</div>
+        <div style="font-size:10px;color:var(--text-secondary);margin-top:2px">
+          Order: <span id="rzp-item-order-id" style="font-family:var(--font-mono);color:var(--indigo-bright)">order_sim_123</span>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;color:var(--text-muted)">AGREED PRICE</div>
+        <div id="rzp-item-price" style="font-size:16px;font-weight:900;color:var(--emerald)">₹22,374.75</div>
+      </div>
+    </div>
+
+    <!-- Payment Methods -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Select Payment Mode</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <button class="rzp-method-btn active" data-method="upi" style="padding:10px 8px;border-radius:10px;background:rgba(99,102,241,0.15);border:1px solid var(--indigo);color:#fff;font-size:11px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer">
+          <i data-lucide="smartphone" style="width:16px;height:16px;color:var(--indigo-bright)"></i>
+          <span>UPI / QR</span>
+        </button>
+        <button class="rzp-method-btn" data-method="card" style="padding:10px 8px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);color:var(--text-secondary);font-size:11px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer">
+          <i data-lucide="credit-card" style="width:16px;height:16px"></i>
+          <span>Card</span>
+        </button>
+        <button class="rzp-method-btn" data-method="netbanking" style="padding:10px 8px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);color:var(--text-secondary);font-size:11px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer">
+          <i data-lucide="landmark" style="width:16px;height:16px"></i>
+          <span>NetBanking</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Payment Mode Details -->
+    <div id="rzp-method-content" style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:18px;font-size:11px;color:var(--text-secondary)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <i data-lucide="check" style="width:12px;height:12px;color:var(--emerald)"></i>
+        <span style="color:var(--text-primary);font-weight:600">Simulated Instant UPI Transfer</span>
+      </div>
+      <div>Virtual VPA: <span style="font-family:var(--font-mono);color:var(--cyan)">collector@okhdfcbank</span></div>
+      <div style="margin-top:4px">Destination: <span id="rzp-item-location" style="color:var(--text-primary)">📍 India</span></div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button id="btn-rzp-pay-confirm" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;font-size:13px;background:linear-gradient(135deg,#10b981,#059669)">
+        <i data-lucide="shield-check" style="width:16px;height:16px"></i>
+        <span>Authorize & Pay <span id="rzp-btn-amount">₹22,374.75</span></span>
+      </button>
+      <button id="btn-rzp-sim-fail" class="btn btn-ghost" style="width:100%;justify-content:center;font-size:11px;color:var(--red);border-color:rgba(248,113,113,0.3)">
+        <i data-lucide="alert-triangle" style="width:13px;height:13px"></i>
+        Simulate Bank Dropout / Timeout Failure
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

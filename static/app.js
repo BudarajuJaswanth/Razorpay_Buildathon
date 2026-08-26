@@ -643,12 +643,117 @@ function initChat() {
       if (input) { input.value = c.dataset.prompt; sendMessage(); }
     });
   });
+
+  // Pay via Razorpay Sandbox Button Trigger
+  document.getElementById('checkout-link')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (currentCheckout) {
+      openRazorpaySandboxModal(currentCheckout);
+    } else {
+      appendSystem('⚠ Please negotiate and lock in an agreed price with the AI Concierge first.');
+    }
+  });
+
   document.getElementById('sim-success-chat')?.addEventListener('click', () => {
     currentCheckout ? simulateDirect('success') : appendSystem('⚠ Complete a negotiation first to get a payment link.');
   });
   document.getElementById('sim-failure-chat')?.addEventListener('click', () => {
     currentCheckout ? simulateDirect('failure') : appendSystem('⚠ Complete a negotiation first to get a payment link.');
   });
+
+  initRazorpayModal();
+}
+
+function initRazorpayModal() {
+  document.getElementById('btn-close-rzp')?.addEventListener('click', closeRazorpaySandboxModal);
+
+  document.querySelectorAll('.rzp-method-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.rzp-method-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const method = btn.dataset.method;
+      updateRazorpayMethodUI(method);
+    });
+  });
+
+  document.getElementById('btn-rzp-pay-confirm')?.addEventListener('click', () => {
+    closeRazorpaySandboxModal();
+    if (currentCheckout) {
+      simulateDirect('success');
+      appendSystem(`🎉 Payment Authorized! Razorpay Sandbox has confirmed the capture of ₹${Number(currentCheckout.amount).toLocaleString('en-IN')}. Order Receipt generated.`);
+    }
+  });
+
+  document.getElementById('btn-rzp-sim-fail')?.addEventListener('click', () => {
+    closeRazorpaySandboxModal();
+    if (currentCheckout) {
+      simulateDirect('failure');
+    }
+  });
+}
+
+function updateRazorpayMethodUI(method) {
+  const container = document.getElementById('rzp-method-content');
+  if (!container) return;
+
+  if (method === 'upi') {
+    container.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <i data-lucide="check" style="width:12px;height:12px;color:var(--emerald)"></i>
+        <span style="color:var(--text-primary);font-weight:600">Simulated Instant UPI Transfer</span>
+      </div>
+      <div>Virtual VPA: <span style="font-family:var(--font-mono);color:var(--cyan)">collector@okhdfcbank</span></div>
+      <div style="margin-top:4px">Destination: <span style="color:var(--text-primary)">📍 ${esc(userDeliveryLocation)}</span></div>
+    `;
+  } else if (method === 'card') {
+    container.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <i data-lucide="credit-card" style="width:12px;height:12px;color:var(--indigo-bright)"></i>
+        <span style="color:var(--text-primary);font-weight:600">Razorpay Test Card (4111 •••• •••• 4444)</span>
+      </div>
+      <div>Expiry: <span style="font-family:var(--font-mono);color:var(--cyan)">12/28</span> · CVV: <span style="font-family:var(--font-mono);color:var(--cyan)">999</span></div>
+      <div style="margin-top:4px">3D-Secure Sandbox: <span style="color:var(--emerald)">Auto-OTP Verified</span></div>
+    `;
+  } else if (method === 'netbanking') {
+    container.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <i data-lucide="landmark" style="width:12px;height:12px;color:var(--amber)"></i>
+        <span style="color:var(--text-primary);font-weight:600">HDFC / ICICI / SBI / Axis Sandbox</span>
+      </div>
+      <div>Corporate Gateway: <span style="font-family:var(--font-mono);color:var(--cyan)">KicksVault Instant Clearing</span></div>
+      <div style="margin-top:4px">Status: <span style="color:var(--emerald)">High-Availability Rail</span></div>
+    `;
+  }
+  lucide.createIcons();
+}
+
+function openRazorpaySandboxModal(checkoutData) {
+  if (!checkoutData) return;
+  const prod = PRODUCTS[checkoutData.product_id] || {};
+
+  const modal = document.getElementById('razorpay-modal');
+  const img = document.getElementById('rzp-item-img');
+  const name = document.getElementById('rzp-item-name');
+  const orderId = document.getElementById('rzp-item-order-id');
+  const price = document.getElementById('rzp-item-price');
+  const btnAmount = document.getElementById('rzp-btn-amount');
+  const loc = document.getElementById('rzp-item-location');
+
+  if (img) img.src = prod.image || 'https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=200&q=80';
+  if (name) name.textContent = prod.name || checkoutData.product_id;
+  if (orderId) orderId.textContent = checkoutData.order_id || `order_${Date.now()}`;
+  const formattedPrice = `₹${Number(checkoutData.amount).toLocaleString('en-IN')}`;
+  if (price) price.textContent = formattedPrice;
+  if (btnAmount) btnAmount.textContent = formattedPrice;
+  if (loc) loc.textContent = `📍 ${userDeliveryLocation}`;
+
+  if (modal) modal.style.display = 'flex';
+  lucide.createIcons();
+}
+
+function closeRazorpaySandboxModal() {
+  const modal = document.getElementById('razorpay-modal');
+  if (modal) modal.style.display = 'none';
 }
 
 async function sendMessage() {
