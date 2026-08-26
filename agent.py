@@ -5,7 +5,7 @@ from typing import List, TypedDict, Optional, Dict, Union
 
 from dotenv import load_dotenv
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, END
 
 # Load environment variables
@@ -35,7 +35,11 @@ class AgentState(TypedDict, total=False):
     failure_recovery: bool          # True when triggered by payment.failed
 
 # ---------- LLM Initialization ----------
-llm = ChatGoogleGenerativeAI(model="gemini-3.6-flash", api_key=os.getenv("GEMINI_API_KEY"))
+llm = ChatGroq(
+    model="llama-3.3-70b-versatile",
+    api_key=os.getenv("GROQ_API_KEY"),
+    temperature=0.3
+)
 
 # ---------- Intent Detection Patterns ----------
 # Stage 3 – buyer signals immediate purchase intent
