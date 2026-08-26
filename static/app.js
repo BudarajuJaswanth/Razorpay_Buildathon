@@ -96,11 +96,171 @@ document.addEventListener('DOMContentLoaded', () => {
   initNav();
   initChat();
   initHUD();
+  initInventoryManager();
   renderProductGrid();
   startHUDPoller();
   startFailurePoller();
   showPage('page-storefront');
 });
+
+// ============================================================
+//  MERCHANT INVENTORY & STOCK CONTROLLER
+// ============================================================
+function initInventoryManager() {
+  renderInventoryTable();
+
+  document.getElementById('btn-toggle-add-product')?.addEventListener('click', () => {
+    const panel = document.getElementById('add-product-panel');
+    if (panel) {
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    }
+  });
+
+  document.getElementById('btn-cancel-add-prod')?.addEventListener('click', () => {
+    const panel = document.getElementById('add-product-panel');
+    if (panel) panel.style.display = 'none';
+  });
+
+  document.getElementById('form-add-product')?.addEventListener('submit', handleAddNewProduct);
+}
+
+function renderInventoryTable() {
+  const tbody = document.getElementById('inventory-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = Object.entries(PRODUCTS).map(([pid, p]) => {
+    const stockColor = p.stock > 3 ? 'var(--emerald)' : (p.stock > 0 ? 'var(--amber)' : 'var(--red)');
+    return `
+      <tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px">
+            <img src="${p.image}" style="width:34px;height:34px;border-radius:8px;object-fit:cover;border:1px solid rgba(255,255,255,0.1)"/>
+            <div>
+              <div style="font-weight:700;font-size:12px;color:var(--text-primary)">${esc(p.name)}</div>
+              <div style="font-family:var(--font-mono);font-size:10px;color:var(--indigo-bright)">${pid}</div>
+            </div>
+          </div>
+        </td>
+        <td style="font-weight:700;color:var(--text-primary)">₹${Number(p.price).toLocaleString('en-IN')}</td>
+        <td>
+          <span style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:${stockColor}">
+            ${p.stock} in vault
+          </span>
+        </td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button onclick="changeProductStock('${pid}', -1)" class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:12px;border:1px solid rgba(255,255,255,0.1)" title="Decrease Stock">
+              -
+            </button>
+            <button onclick="changeProductStock('${pid}', 1)" class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:12px;border:1px solid rgba(255,255,255,0.1)" title="Increase Stock">
+              +
+            </button>
+            <button onclick="promptSetStock('${pid}', ${p.stock})" class="btn btn-secondary btn-sm" style="padding:2px 8px;font-size:10px" title="Set Exact Stock">
+              Set
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function changeProductStock(pid, delta) {
+  if (!PRODUCTS[pid]) return;
+  const currentStock = PRODUCTS[pid].stock || 0;
+  const newStock = Math.max(0, currentStock + delta);
+  await saveProductStock(pid, newStock);
+}
+
+async function promptSetStock(pid, currentStock) {
+  const input = prompt(`Enter new stock count for ${pid}:`, currentStock);
+  if (input === null) return;
+  const num = parseInt(input, 10);
+  if (!isNaN(num) && num >= 0) {
+    await saveProductStock(pid, num);
+  }
+}
+
+async function saveProductStock(pid, newStock) {
+  try {
+    const resp = await fetch(`/api/products/${pid}/stock`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stock: newStock })
+    });
+    if (resp.ok) {
+      if (PRODUCTS[pid]) PRODUCTS[pid].stock = newStock;
+      renderInventoryTable();
+      renderProductGrid();
+      logTerminal('ok', `[INVENTORY] Updated stock for ${pid} → ${newStock} units`);
+    } else {
+      const err = await resp.json();
+      alert(`Error updating stock: ${err.detail || 'Request failed'}`);
+    }
+  } catch (err) {
+    alert(`Network error updating stock: ${err.message}`);
+  }
+}
+
+async function handleAddNewProduct(e) {
+  e.preventDefault();
+  const id = document.getElementById('new-prod-id')?.value.trim();
+  const name = document.getElementById('new-prod-name')?.value.trim();
+  const retail = parseFloat(document.getElementById('new-prod-retail')?.value);
+  const floor = parseFloat(document.getElementById('new-prod-floor')?.value);
+  const stock = parseInt(document.getElementById('new-prod-stock')?.value, 10) || 1;
+  const badge = document.getElementById('new-prod-badge')?.value.trim() || 'Vault Drop';
+  const image = document.getElementById('new-prod-image')?.value.trim() || 'https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=800&q=80';
+  const desc = document.getElementById('new-prod-desc')?.value.trim();
+
+  if (!id || !name || isNaN(retail) || isNaN(floor)) {
+    alert('Please fill in all required product fields with valid values.');
+    return;
+  }
+
+  try {
+    const resp = await fetch('/api/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id,
+        name,
+        description: desc,
+        retail_price: retail,
+        floor_price: floor,
+        stock,
+        badge,
+        image
+      })
+    });
+
+    if (resp.ok) {
+      PRODUCTS[id] = {
+        name,
+        price: retail,
+        floor,
+        stock,
+        badges: [[badge, 'red']],
+        desc,
+        image
+      };
+
+      document.getElementById('add-product-panel').style.display = 'none';
+      document.getElementById('form-add-product').reset();
+
+      renderInventoryTable();
+      renderProductGrid();
+
+      logTerminal('ok', `[CATALOG] Deployed new vault product drop: ${id} (${name})`);
+      alert(`🎉 Product ${name} (${id}) deployed to live catalog!`);
+    } else {
+      const err = await resp.json();
+      alert(`Error creating product: ${err.detail || 'Failed'}`);
+    }
+  } catch (err) {
+    alert(`Network error creating product: ${err.message}`);
+  }
+}
 
 // ============================================================
 //  STOREFRONT PRODUCT GRID (8 LUXURY ITEMS)

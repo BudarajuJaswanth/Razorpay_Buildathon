@@ -481,6 +481,85 @@
           <div id="sentinel" class="sentinel sentinel-idle">◎ &nbsp; IDLE — Awaiting Negotiation Activity</div>
         </div>
 
+        <!-- Inventory & Stock Management -->
+        <div class="glass" style="padding:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <i data-lucide="boxes" style="width:14px;height:14px;color:var(--emerald)"></i>
+              <span style="font-size:13px;font-weight:700">Live Inventory & Stock Manager</span>
+            </div>
+            <button id="btn-toggle-add-product" class="btn btn-secondary btn-sm" style="font-size:11px;padding:4px 10px;display:flex;align-items:center;gap:4px">
+              <i data-lucide="plus" style="width:12px;height:12px"></i>
+              Add New Product Drop
+            </button>
+          </div>
+
+          <!-- Add Product Collapsible Form -->
+          <div id="add-product-panel" style="display:none;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin-bottom:16px">
+            <div style="font-size:12px;font-weight:700;margin-bottom:12px;color:var(--indigo-bright)">📦 Deploy New Vault Drop</div>
+            <form id="form-add-product" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label class="sim-label">Product ID</label>
+                <input type="text" id="new-prod-id" class="sim-input" placeholder="e.g. PROD_009" required/>
+              </div>
+              <div>
+                <label class="sim-label">Product Title / Sneaker Name</label>
+                <input type="text" id="new-prod-name" class="sim-input" placeholder="e.g. Off-White x Nike Air Jordan 1 'UNC'" required/>
+              </div>
+              <div>
+                <label class="sim-label">Retail Value (₹ INR)</label>
+                <input type="number" id="new-prod-retail" class="sim-input" placeholder="125000" required/>
+              </div>
+              <div>
+                <label class="sim-label">Floor Reserve (₹ INR - Secret)</label>
+                <input type="number" id="new-prod-floor" class="sim-input" placeholder="110000" required/>
+              </div>
+              <div>
+                <label class="sim-label">Initial Stock Count</label>
+                <input type="number" id="new-prod-stock" class="sim-input" value="2" min="0" required/>
+              </div>
+              <div>
+                <label class="sim-label">Badge / Status</label>
+                <input type="text" id="new-prod-badge" class="sim-input" value="Grail Tier" placeholder="e.g. Grail Tier"/>
+              </div>
+              <div style="grid-column:1/-1">
+                <label class="sim-label">Image URL</label>
+                <input type="url" id="new-prod-image" class="sim-input" placeholder="https://images.unsplash.com/photo-..." value="https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=800&q=80"/>
+              </div>
+              <div style="grid-column:1/-1">
+                <label class="sim-label">Product Description</label>
+                <input type="text" id="new-prod-desc" class="sim-input" placeholder="Authentic deadstock with tamper-evident NFC tags." required/>
+              </div>
+              <div style="grid-column:1/-1;display:flex;gap:8px;margin-top:6px">
+                <button type="submit" class="btn btn-primary btn-sm" style="padding:7px 16px;font-size:11px">
+                  <i data-lucide="check" style="width:12px;height:12px"></i>
+                  Deploy Drop to Catalog
+                </button>
+                <button type="button" id="btn-cancel-add-prod" class="btn btn-ghost btn-sm" style="font-size:11px">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Stock Editor Table -->
+          <div style="overflow-x:auto">
+            <table class="orders-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Retail Price</th>
+                  <th>Stock Count</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="inventory-tbody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Simulation controls -->
         <div class="sim-control">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:16px">
@@ -504,6 +583,10 @@
                 <option value="PROD_002">PROD_002 — Yeezy Boost 350 Onyx</option>
                 <option value="PROD_003">PROD_003 — Nike Dunk Low Panda</option>
                 <option value="PROD_004">PROD_004 — CreaseGuard Kit</option>
+                <option value="PROD_005">PROD_005 — Travis Scott Reverse Mocha</option>
+                <option value="PROD_006">PROD_006 — New Balance 9060</option>
+                <option value="PROD_007">PROD_007 — Air Jordan 4 Military Black</option>
+                <option value="PROD_008">PROD_008 — Wooden Sneaker Crate</option>
               </select>
             </div>
             <div>

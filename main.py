@@ -22,7 +22,7 @@ load_dotenv(dotenv_path=os.path.join(PROJECT_ROOT, ".env"), override=False)
 PORT = int(os.getenv("PORT", 8000))
 
 from storage import create_order, update_order_status, get_order, get_all_orders
-from guardrails import CATALOG, get_catalog_summary
+from guardrails import CATALOG, get_catalog_summary, add_product_to_catalog, update_product_stock
 
 _AGENT_IMPORT_ERROR: str | None = None
 try:
@@ -246,6 +246,42 @@ async def reset_session(req: ChatRequest):
 @app.get("/api/catalog")
 async def get_public_catalog():
     return {"products": CATALOG, "count": len(CATALOG)}
+
+# ----- Product Inventory Management Endpoints -----
+class AddProductRequest(BaseModel):
+    id: str
+    name: str
+    description: str
+    retail_price: float
+    floor_price: float
+    stock: int = 1
+    badge: str = "Verified Authentic"
+    image: Optional[str] = None
+
+class UpdateStockRequest(BaseModel):
+    stock: int
+
+@app.post("/api/products")
+async def add_product_endpoint(req: AddProductRequest):
+    prod = add_product_to_catalog(
+        product_id=req.id,
+        name=req.name,
+        description=req.description,
+        retail_price=req.retail_price,
+        floor_price=req.floor_price,
+        stock=req.stock,
+        badge=req.badge,
+        image=req.image
+    )
+    return {"status": "created", "product": prod, "total_products": len(CATALOG)}
+
+@app.put("/api/products/{product_id}/stock")
+async def update_stock_endpoint(product_id: str, req: UpdateStockRequest):
+    try:
+        prod = update_product_stock(product_id, req.stock)
+        return {"status": "updated", "product": prod}
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Product not found")
 
 # ----- A2A Catalog Endpoint -----
 @app.get("/api/agent/catalog")

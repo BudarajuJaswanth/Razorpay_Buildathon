@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 from pydantic import BaseModel, field_validator, ValidationError
 
 # Luxury sneaker catalog for KicksVault India
@@ -143,4 +143,36 @@ def get_product(product_id: str) -> Dict:
     """Retrieve the dictionary representing a single product.
     Raises KeyError if the product does not exist.
     """
+    return CATALOG[product_id]
+
+
+def add_product_to_catalog(
+    product_id: str,
+    name: str,
+    description: str,
+    retail_price: float,
+    floor_price: float,
+    stock: int = 1,
+    badge: str = "Verified Authentic",
+    image: Optional[str] = None
+) -> Dict:
+    """Dynamically add or update a product in the live catalog."""
+    CATALOG[product_id] = {
+        "id": product_id,
+        "name": name,
+        "description": description,
+        "retail_price": float(retail_price),
+        "floor_price": float(floor_price),
+        "stock": max(0, int(stock)),
+        "badge": badge,
+        "image": image or "https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=800&q=80"
+    }
+    return CATALOG[product_id]
+
+
+def update_product_stock(product_id: str, new_stock: int) -> Dict:
+    """Update stock quantity for an existing product."""
+    if product_id not in CATALOG:
+        raise KeyError(f"Product {product_id} not found in catalog")
+    CATALOG[product_id]["stock"] = max(0, int(new_stock))
     return CATALOG[product_id]
