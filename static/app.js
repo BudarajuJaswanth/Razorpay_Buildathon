@@ -106,6 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initNav();
   initChat();
   initHUD();
+  initCustomerSimDeck();
   initInventoryManager();
   renderProductGrid();
   startHUDPoller();
@@ -816,6 +817,65 @@ function setupBankListeners() {
       lucide.createIcons();
     });
   });
+}
+
+// ============================================================
+//  CUSTOMER SIMULATION DECK — button wiring
+// ============================================================
+function initCustomerSimDeck() {
+  document.getElementById('cust-sim-success')?.addEventListener('click', () => runCustomerSim('success'));
+  document.getElementById('cust-sim-failure')?.addEventListener('click', () => runCustomerSim('failure'));
+}
+
+async function runCustomerSim(type) {
+  const orderId   = document.getElementById('cust-sim-order-id')?.value.trim()  || `order_sim_${Date.now()}`;
+  const amount    = parseFloat(document.getElementById('cust-sim-amount')?.value) || 24999;
+  const productId = document.getElementById('cust-sim-product')?.value            || 'PROD_001';
+  const custId    = document.getElementById('cust-sim-customer-id')?.value.trim() || 'cust_simulated';
+  const fb        = document.getElementById('cust-sim-feedback');
+
+  const endpoint = type === 'success' ? '/api/simulate-payment' : '/api/simulate-failure';
+
+  const btnS = document.getElementById('cust-sim-success');
+  const btnF = document.getElementById('cust-sim-failure');
+  if (btnS) btnS.disabled = true;
+  if (btnF) btnF.disabled = true;
+
+  if (fb) {
+    fb.style.display = 'block';
+    fb.style.background = 'rgba(99,102,241,0.12)';
+    fb.style.color = 'var(--indigo-bright)';
+    fb.style.border = '1px solid rgba(99,102,241,0.3)';
+    fb.textContent = `[SIM] Sending ${type.toUpperCase()} event → ${endpoint}…`;
+  }
+
+  try {
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Dev-Token': DEV_TOKEN },
+      body: JSON.stringify({ order_id: orderId, amount, product_id: productId, customer_id: custId })
+    });
+    const data = await resp.json();
+
+    if (resp.ok) {
+      if (fb) {
+        fb.style.background = type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(248,113,113,0.08)';
+        fb.style.color      = type === 'success' ? 'var(--emerald)' : '#fca5a5';
+        fb.style.border     = type === 'success' ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(248,113,113,0.3)';
+        fb.textContent = type === 'success'
+          ? `✓ PAID — HMAC: ${(data.verified_hmac || '').slice(0, 24)}… | ${orderId}`
+          : `✗ FAILED — bank_transaction_timeout | ${orderId}`;
+      }
+      await pollOrders();
+    } else {
+      if (fb) { fb.style.color = '#fca5a5'; fb.textContent = `⚠ Error: ${data.detail || 'Unknown error'}`; }
+    }
+  } catch (err) {
+    if (fb) { fb.style.color = '#fca5a5'; fb.textContent = `⚠ Request failed: ${err.message}`; }
+  } finally {
+    if (btnS) btnS.disabled = false;
+    if (btnF) btnF.disabled = false;
+  }
 }
 
 async function launchOfficialRazorpayCheckout(checkoutData) {

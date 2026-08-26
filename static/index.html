@@ -297,7 +297,7 @@
       </div>
 
       <!-- Mini Telemetry (Admin Only) -->
-      <div class="glass admin-only-ui" style="padding:16px;flex:1;display:none">
+      <div class="glass admin-only-ui" style="padding:16px;display:none">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
           <i data-lucide="activity" style="width:13px;height:13px;color:var(--indigo-bright)"></i>
           <span style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:0.06em">LIVE TELEMETRY</span>
@@ -309,16 +309,80 @@
         </div>
       </div>
 
-      <!-- My Orders — Live Transaction Ledger (Customer) -->
-      <div class="glass" id="my-orders-panel" style="padding:16px;flex:1">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <!-- ── Simulation Control Deck (Customer) ── -->
+      <div class="glass" id="customer-sim-deck" style="padding:18px">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
           <div style="display:flex;align-items:center;gap:8px">
-            <i data-lucide="receipt" style="width:14px;height:14px;color:var(--emerald)"></i>
-            <span style="font-size:12px;font-weight:800;color:var(--text-primary);letter-spacing:0.02em">My Orders</span>
+            <i data-lucide="flask-conical" style="width:15px;height:15px;color:var(--amber)"></i>
+            <span style="font-size:13px;font-weight:800;color:var(--text-primary);letter-spacing:0.01em">Simulation Control Deck</span>
           </div>
-          <div style="display:flex;align-items:center;gap:5px">
+          <span style="font-size:9px;font-family:var(--font-mono);color:var(--text-muted);opacity:0.7">X-Dev-Token Protected</span>
+        </div>
+
+        <!-- Row 1: Order ID + Amount -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div>
+            <label style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);display:block;margin-bottom:6px">ORDER ID</label>
+            <input id="cust-sim-order-id" type="text" value="order_sim_001"
+              style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;font-family:var(--font-mono);color:var(--text-primary);outline:none;box-sizing:border-box"/>
+          </div>
+          <div>
+            <label style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);display:block;margin-bottom:6px">AMOUNT (₹ INR)</label>
+            <input id="cust-sim-amount" type="number" value="24999"
+              style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;font-family:var(--font-mono);color:var(--text-primary);outline:none;box-sizing:border-box"/>
+          </div>
+        </div>
+
+        <!-- Row 2: Product + Customer ID -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div>
+            <label style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);display:block;margin-bottom:6px">PRODUCT</label>
+            <select id="cust-sim-product"
+              style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--text-primary);outline:none;box-sizing:border-box;appearance:none;cursor:pointer">
+              <option value="PROD_001">PROD_001 — Air Jordan 1 Chicago</option>
+              <option value="PROD_002">PROD_002 — Yeezy Boost 350 Onyx</option>
+              <option value="PROD_003">PROD_003 — Nike Dunk Low Panda</option>
+              <option value="PROD_004">PROD_004 — CreaseGuard Kit</option>
+              <option value="PROD_005">PROD_005 — Travis Scott Reverse Mocha</option>
+              <option value="PROD_006">PROD_006 — New Balance 9060</option>
+              <option value="PROD_007">PROD_007 — AJ4 Military Black</option>
+              <option value="PROD_008">PROD_008 — Acrylic Sneaker Crate</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);display:block;margin-bottom:6px">CUSTOMER ID</label>
+            <input id="cust-sim-customer-id" type="text" value="cust_simulated"
+              style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;font-family:var(--font-mono);color:var(--text-primary);outline:none;box-sizing:border-box"/>
+          </div>
+        </div>
+
+        <!-- Buttons -->
+        <div style="display:flex;gap:10px">
+          <button id="cust-sim-success" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 14px;border-radius:10px;border:none;cursor:pointer;font-size:12px;font-weight:700;background:linear-gradient(135deg,#10b981,#059669);color:#fff;transition:opacity 0.2s">
+            <i data-lucide="check-circle" style="width:14px;height:14px"></i>
+            Simulate Success Capture
+          </button>
+          <button id="cust-sim-failure" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 14px;border-radius:10px;border:1px solid rgba(248,113,113,0.4);cursor:pointer;font-size:12px;font-weight:700;background:rgba(248,113,113,0.08);color:#fca5a5;transition:opacity 0.2s">
+            <i data-lucide="x-circle" style="width:14px;height:14px"></i>
+            Simulate Timeout Failure
+          </button>
+        </div>
+
+        <!-- Inline feedback toast -->
+        <div id="cust-sim-feedback" style="display:none;margin-top:10px;padding:8px 12px;border-radius:8px;font-size:11px;font-family:var(--font-mono)"></div>
+      </div>
+
+      <!-- ── Live Transaction Ledger (Customer) ── -->
+      <div class="glass" id="my-orders-panel" style="padding:18px;flex:1">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <i data-lucide="table-2" style="width:14px;height:14px;color:var(--indigo-bright)"></i>
+            <span style="font-size:13px;font-weight:800;color:var(--text-primary)">Live Transaction Ledger</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
             <span class="pulse" style="background:var(--emerald)"></span>
-            <span style="font-size:9px;font-family:var(--font-mono);color:var(--text-muted)">Live</span>
+            <span style="font-size:9px;font-family:var(--font-mono);color:var(--text-muted)">Polling /api/orders every 3s</span>
           </div>
         </div>
 
@@ -326,18 +390,18 @@
           <table style="width:100%;border-collapse:collapse;font-size:11px">
             <thead>
               <tr style="border-bottom:1px solid var(--border)">
-                <th style="text-align:left;padding:6px 4px;font-weight:700;font-size:10px;color:var(--text-muted);letter-spacing:0.06em;font-family:var(--font-mono)">ORDER ID</th>
-                <th style="text-align:left;padding:6px 4px;font-weight:700;font-size:10px;color:var(--text-muted);letter-spacing:0.06em;font-family:var(--font-mono)">PRODUCT</th>
-                <th style="text-align:left;padding:6px 4px;font-weight:700;font-size:10px;color:var(--text-muted);letter-spacing:0.06em;font-family:var(--font-mono)">AMOUNT</th>
-                <th style="text-align:left;padding:6px 4px;font-weight:700;font-size:10px;color:var(--text-muted);letter-spacing:0.06em;font-family:var(--font-mono)">STATUS</th>
-                <th style="text-align:left;padding:6px 4px;font-weight:700;font-size:10px;color:var(--text-muted);letter-spacing:0.06em;font-family:var(--font-mono)">TIME</th>
+                <th style="text-align:left;padding:7px 6px;font-weight:700;font-size:9px;color:var(--text-muted);letter-spacing:0.08em;font-family:var(--font-mono)">ORDER ID</th>
+                <th style="text-align:left;padding:7px 6px;font-weight:700;font-size:9px;color:var(--text-muted);letter-spacing:0.08em;font-family:var(--font-mono)">PRODUCT</th>
+                <th style="text-align:left;padding:7px 6px;font-weight:700;font-size:9px;color:var(--text-muted);letter-spacing:0.08em;font-family:var(--font-mono)">AMOUNT</th>
+                <th style="text-align:left;padding:7px 6px;font-weight:700;font-size:9px;color:var(--text-muted);letter-spacing:0.08em;font-family:var(--font-mono)">STATUS</th>
+                <th style="text-align:left;padding:7px 6px;font-weight:700;font-size:9px;color:var(--text-muted);letter-spacing:0.08em;font-family:var(--font-mono)">TIME</th>
               </tr>
             </thead>
             <tbody id="my-orders-tbody">
               <tr>
-                <td colspan="5" style="text-align:center;padding:24px 4px;color:var(--text-muted);font-size:11px">
-                  <i data-lucide="shopping-bag" style="width:18px;height:18px;display:block;margin:0 auto 8px;opacity:0.4"></i>
-                  No orders yet — negotiate a deal to get started!
+                <td colspan="5" style="text-align:center;padding:28px 6px;color:var(--text-muted);font-size:11px">
+                  <i data-lucide="inbox" style="width:20px;height:20px;display:block;margin:0 auto 8px;opacity:0.3"></i>
+                  No transactions yet — negotiate a deal to get started!
                 </td>
               </tr>
             </tbody>
@@ -348,6 +412,7 @@
     </div>
   </div>
 </section>
+
 
 
 <!-- ============================================================
