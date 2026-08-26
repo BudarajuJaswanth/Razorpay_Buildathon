@@ -197,6 +197,12 @@ function updateAuthUI() {
   }
 }
 
+// ============================================================
+//  MERCHANT INVENTORY & STOCK CONTROLLER
+// ============================================================
+function initInventoryManager() {
+  renderInventoryTable();
+
   document.getElementById('btn-toggle-add-product')?.addEventListener('click', () => {
     const panel = document.getElementById('add-product-panel');
     if (panel) {
