@@ -4,34 +4,63 @@
 // ============================================================
 
 // ---------- Product config (mirrors backend catalog) ----------
+// ---------- Product config (mirrors backend catalog) ----------
 const PRODUCTS = {
   PROD_001: {
-    name: "Air Jordan 1 Retro High OG 'Chicago Lost & Found'",
+    name: "Air Jordan 1 High OG 'Chicago Lost & Found'",
     image: 'https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=800&q=80',
     price: 24999, floor: 21500, stock: 2,
     badges: [['Grail Drop', 'red'], ['Verified Authentic', 'emerald']],
-    desc: 'Iconic high-top with premium leather and the legendary Chicago colorway. Extremely limited release.'
+    desc: 'Iconic high-top with cracked leather detailing and the legendary Chicago colorway. Deadstock release.'
   },
   PROD_002: {
     name: "Yeezy Boost 350 V2 'Onyx'",
     image: 'https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2?auto=format&fit=crop&w=800&q=80',
     price: 19499, floor: 17000, stock: 4,
     badges: [['Primeknit', 'indigo'], ['Boost', 'indigo']],
-    desc: 'Sleek all-black monochrome silhouette with full-length Boost midsole for unrivaled comfort.'
+    desc: 'Sleek all-black monochrome silhouette with full-length re-engineered Boost cushioning.'
   },
   PROD_003: {
-    name: "Nike Dunk Low Retro 'Panda'",
+    name: "Nike Dunk Low 'Panda'",
     image: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=800&q=80',
     price: 11999, floor: 9999, stock: 7,
-    badges: [['Street Icon', 'cyan'], ['Fast Selling', 'amber']],
-    desc: "The timeless black-white contrast dunk — a certified collector's staple that never fades."
+    badges: [['Street Icon', 'cyan'], ['In Stock', 'emerald']],
+    desc: "The timeless two-tone monochrome dunk — a certified collector's daily staple."
   },
   PROD_004: {
-    name: 'CreaseGuard Pro Care & Sneaker Shield Kit',
+    name: 'CreaseGuard Pro Care & Shield Kit',
     image: 'https://images.unsplash.com/photo-1607522370275-f14206abe5d3?auto=format&fit=crop&w=800&q=80',
     price: 1499, floor: 999, stock: 25,
-    badges: [['Essential Addon', 'emerald']],
-    desc: 'Premium care kit: shoe trees, cleaning solution, and crease guards. Protect your grails.'
+    badges: [['Essential Addon', 'amber']],
+    desc: 'Hydro-repellent shields, natural horsehair brush, and enzymatic foam. Protect your grails.'
+  },
+  PROD_005: {
+    name: "Travis Scott x Air Jordan 1 Low 'Reverse Mocha'",
+    image: 'https://images.unsplash.com/photo-1514989940723-e8e51635b782?auto=format&fit=crop&w=800&q=80',
+    price: 89999, floor: 82000, stock: 1,
+    badges: [['Holy Grail', 'red'], ['NFC Verified', 'emerald']],
+    desc: 'Sail and Ridgerock nubuck upper with Cactus Jack oversized backward Swoosh embroidery.'
+  },
+  PROD_006: {
+    name: "New Balance 9060 'Rain Cloud'",
+    image: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=800&q=80',
+    price: 16499, floor: 14200, stock: 5,
+    badges: [['ABZORB Pods', 'cyan'], ['Essential', 'indigo']],
+    desc: 'Futuristic retro-runner fusing 990-series heritage with sculpted dual-density cushioning.'
+  },
+  PROD_007: {
+    name: "Air Jordan 4 Retro 'Military Black'",
+    image: 'https://images.unsplash.com/photo-1515955656352-a1fa3ffcd111?auto=format&fit=crop&w=800&q=80',
+    price: 34999, floor: 30500, stock: 3,
+    badges: [['Vault Heat', 'red'], ['Deadstock', 'emerald']],
+    desc: 'Clean white leather with neutral grey suede toe-wrap and contrasting black TPU eyelets.'
+  },
+  PROD_008: {
+    name: 'KicksVault Premium Wooden Sneaker Crate',
+    image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=800&q=80',
+    price: 3999, floor: 2800, stock: 15,
+    badges: [['Cedarwood', 'amber'], ['LED Light', 'indigo']],
+    desc: 'Handcrafted display vault with UV-filtering acrylic magnetic door and spotlighting.'
   }
 };
 
@@ -74,8 +103,92 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============================================================
-//  LOCATION / GEOLOCATION DETECTION
+//  STOREFRONT PRODUCT GRID (8 LUXURY ITEMS)
 // ============================================================
+async function renderProductGrid() {
+  const container = document.getElementById('product-grid');
+  if (!container) return;
+
+  let catalogData = PRODUCTS;
+  try {
+    const resp = await fetch('/api/catalog');
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.products && Object.keys(data.products).length > 0) {
+        Object.entries(data.products).forEach(([pid, p]) => {
+          if (catalogData[pid]) {
+            catalogData[pid].name = p.name || catalogData[pid].name;
+            catalogData[pid].price = p.retail_price || catalogData[pid].price;
+            catalogData[pid].stock = p.stock ?? catalogData[pid].stock;
+            catalogData[pid].desc = p.description || catalogData[pid].desc;
+          } else {
+            catalogData[pid] = {
+              name: p.name,
+              price: p.retail_price,
+              floor: p.floor_price,
+              stock: p.stock,
+              badges: [[p.badge || 'Verified', 'emerald']],
+              desc: p.description,
+              image: 'https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=800&q=80'
+            };
+          }
+        });
+      }
+    }
+  } catch (_) {}
+
+  container.innerHTML = Object.entries(catalogData).map(([pid, p]) => {
+    const badgesHtml = (p.badges || [['Verified Authentic', 'emerald']]).map(([label, colorKey]) => {
+      const c = BADGE_COLORS[colorKey] || BADGE_COLORS.emerald;
+      return `<span style="background:${c.bg};color:${c.color};border:1px solid ${c.border};padding:2px 8px;border-radius:100px;font-size:10px;font-weight:700;letter-spacing:0.04em">${esc(label)}</span>`;
+    }).join(' ');
+
+    return `
+      <div class="product-card glass" style="border-radius:16px;overflow:hidden;display:flex;flex-direction:column;transition:all 0.25s ease;border:1px solid rgba(255,255,255,0.07)">
+        <div style="position:relative;height:210px;overflow:hidden;background:#0d0d12">
+          <img src="${p.image}" alt="${esc(p.name)}" style="width:100%;height:100%;object-fit:cover;transition:transform 0.4s ease" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'"/>
+          <div style="position:absolute;top:12px;left:12px;display:flex;gap:6px;flex-wrap:wrap">
+            ${badgesHtml}
+          </div>
+          <div style="position:absolute;bottom:10px;right:12px;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);padding:3px 8px;border-radius:6px;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary)">
+            Stock: ${p.stock}
+          </div>
+        </div>
+        <div style="padding:18px;display:flex;flex-direction:column;flex:1;justify-content:space-between">
+          <div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--indigo-bright);margin-bottom:4px">${pid}</div>
+            <h3 style="font-size:15px;font-weight:700;line-height:1.35;margin-bottom:8px;color:var(--text-primary)">${esc(p.name)}</h3>
+            <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:14px">${esc(p.desc)}</p>
+          </div>
+          <div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
+              <div>
+                <span style="font-size:10px;color:var(--text-muted);display:block">RETAIL VALUE</span>
+                <span style="font-size:18px;font-weight:800;color:var(--text-primary)">₹${Number(p.price).toLocaleString('en-IN')}</span>
+              </div>
+              <span style="font-size:11px;color:var(--emerald);font-weight:600">✓ In Vault</span>
+            </div>
+            <button onclick="startNegotiationForProduct('${pid}', '${esc(p.name)}')" class="btn btn-primary" style="width:100%;justify-content:center;font-size:12px;padding:9px 12px">
+              <i data-lucide="message-square" style="width:14px;height:14px"></i>
+              Negotiate with AI Concierge
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  lucide.createIcons();
+}
+
+function startNegotiationForProduct(productId, productName) {
+  showPage('page-chat');
+  const input = document.getElementById('chat-input');
+  if (input) {
+    input.value = `Tell me about the ${productName} (${productId}). What is the best price?`;
+    input.focus();
+  }
+}
 function initLocation() {
   updateLocationUI();
 

@@ -1,12 +1,14 @@
 import os
 import re
 import uuid
-from typing import List, TypedDict, Optional, Dict, Union
+from typing import List, TypedDict, Optional, Dict, Union, Annotated
 
 from dotenv import load_dotenv
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, END
+from langgraph.graph.message import add_messages
+from langgraph.checkpoint.memory import MemorySaver
 
 # Load environment variables (local .env; on Vercel these come from the dashboard)
 load_dotenv()
@@ -23,7 +25,7 @@ except ImportError:
 
 # ---------- State Definition ----------
 class AgentState(TypedDict, total=False):
-    messages: List[BaseMessage]
+    messages: Annotated[List[BaseMessage], add_messages]
     customer_id: str
     product_id: Optional[str]
     agreed_price: Optional[float]
@@ -82,12 +84,16 @@ _CLOSING_INTENT_REGEX = re.compile(
     r"\b(i['']m ready|ready to buy|let['']s do it|yes.{0,10}buy|go ahead|confirm the order)\b",
     re.IGNORECASE,
 )
-# Product inquiry detection
+# 8-Product inquiry detection keywords
 _PRODUCT_KEYWORDS: Dict[str, List[str]] = {
-    "PROD_001": ["jordan", "chicago", "lost.*found", "aj1", "aj 1", "PROD_001"],
-    "PROD_002": ["yeezy", "onyx", "boost 350", "PROD_002"],
+    "PROD_001": ["jordan.*1", "chicago", "lost.*found", "aj1", "aj 1", "PROD_001"],
+    "PROD_002": ["yeezy", "onyx", "boost 350", "350 v2", "PROD_002"],
     "PROD_003": ["dunk", "panda", "nike dunk", "PROD_003"],
     "PROD_004": ["creaseguard", "care kit", "shield", "cleaner", "PROD_004"],
+    "PROD_005": ["travis", "scott", "reverse mocha", "cactus jack", "ts1", "PROD_005"],
+    "PROD_006": ["new balance", "9060", "rain cloud", "nb 9060", "PROD_006"],
+    "PROD_007": ["military black", "jordan 4", "aj4", "retro 4", "PROD_007"],
+    "PROD_008": ["crate", "wooden crate", "display vault", "box", "PROD_008"],
 }
 
 # ---------- Helpers ----------
@@ -131,26 +137,26 @@ def _detect_closing_price(text: str) -> Optional[float]:
 
 
 def _ensure_system_prompt(state: AgentState) -> None:
-    """Inject or update system prompt with catalog summary, strict confidentiality, margin protection, and delivery location collection."""
+    """Inject or update system prompt with catalog summary, strict secret pricing rules, and location collection."""
     cat = get_catalog_summary()
     loc_context = f"Customer Destination: {state.get('delivery_location', 'Not specified yet')}"
-    system_content = f"""You are a luxury sneaker concierge and master merchant for KicksVault India — the premier authenticated deadstock sneaker exchange.
+    system_content = f"""You are the elite, protective luxury sneaker concierge at KicksVault India — the certified exchange for deadstock authenticated grails.
 
-CATALOG (source of truth):
+CATALOG & INVENTORY:
 {cat}
 {loc_context}
 
-CRITICAL CONVERSATIONAL MEMORY & FRAMING RULES:
-1. FULL CONVERSATIONAL MEMORY: Maintain complete awareness of the entire chat history. Remember all previously discussed sneakers, prices quoted, customer preferences, questions asked, and locations shared. Never ask the customer to repeat information they already gave.
-2. NEVER REVEAL INTERNAL METRICS: NEVER mention internal cost metrics, margins, markup, reserve pricing, guardrails, or the term "floor price" to the customer.
-3. LUXURY FRAMING: Frame ALL pricing, counter-offers, and firm boundaries exclusively in terms of premium craftsmanship, limited stock rarity, tamper-evident physical NFC authentication, deadstock collector appreciation, and exclusive goodwill VIP savings.
-4. STAGE 1 (Inquiry / First Offer): Anchor firmly at the retail price. Highlight craftsmanship, physical verification, and limited stock count. You may extend AT MOST a 2% goodwill VIP discount OR a complimentary CreaseGuard Care Kit (PROD_004, value ₹1,499).
-5. STAGE 2 (Buyer Bargains / Pushes Back): If the customer pushes back on price, counter with the Stage-2 courtesy price (at most 5% off retail) as our absolute best collector privilege offer. Frame this as a special goodwill courtesy given the rising secondary market value.
-6. STAGE 3 (Deal Closing & Immediate Intent): If the buyer agrees to buy or makes a firm immediate offer (at or above our authorized reserve), confirm the locked-in price, ensure delivery location is noted, and emit EXACTLY:
+SECRET NEGOTIATION RULES & CONVERSATIONAL MEMORY:
+1. NEVER REVEAL INTERNAL METRICS: NEVER mention or reveal words like "floor price", "minimum price", "cost price", "margins", "reserve", "guardrail", or "stage" to the customer.
+2. TOUGH & REALISTIC NEGOTIATION: Defend the retail price with uncompromising standards. Highlight deadstock rarity, physical tamper-evident NFC authentication, and collector appreciation. Keep negotiations firm and hard to crack.
+3. ROUND 1 BARGAIN: If the customer asks for a discount or makes an opening offer, extend at most a 2% to 4% token courtesy discount, or suggest a complimentary accessory (CreaseGuard Care Kit).
+4. ROUND 2 (PERSISTENT BUYER): If the buyer pushes back hard and insists on a better deal, counter-offer halfway down to the item's authorized floor price. Frame this as an exclusive, one-time courtesy for an authenticated collector.
+5. FINAL DEAL / IMMEDIATE CHECKOUT: Only agree to a deeper deal if the user firmly commits to immediate checkout (e.g., "I will buy right now for ₹X" or "I'm ready to checkout").
+6. HARD MARGIN LOCK: If the customer bids lower than the item's hidden floor reserve, firmly decline without mentioning any floor numbers (e.g., "Due to collector rarity, tamper-evident NFC verification, and verified deadstock condition, the best price we can authorize is ₹X").
+7. INTENT ACTION TRIGGER: When a deal is closed or buyer signals intent to purchase at an authorized price, emit EXACTLY:
    [ACTION:CREATE_PAYMENT | product_id: <PRODUCT_ID> | price: <PRICE>]
-7. SUB-RESERVE OFFERS: If a buyer demands a price below our authorized reserve, decline with utmost courtesy. Explain that due to extreme scarcity, verified deadstock condition, and certified collector provenance, we cannot part with this pair at that price point. Present our best courtesy offer instead. Never mention a "floor" or "minimum limit".
 8. DELIVERY LOCATION: Ask or confirm the buyer's delivery destination/city in India (e.g., "Where in India should we dispatch your vault-authenticated pair?"). Acknowledge priority insured courier dispatch.
-9. TONE: Sophisticated, knowledgeable, firm on value, hospitable. Always format prices with the ₹ symbol.
+9. TONE: Sophisticated, authoritative, knowledgeable, firm on value. Always format prices with the ₹ symbol.
 """
     messages = state.get("messages", [])
     if messages and isinstance(messages[0], SystemMessage):
@@ -407,7 +413,8 @@ graph.add_edge("failure_recovery", END)
 
 graph.set_entry_point("sales")
 
-graph_app = graph.compile()
+memory = MemorySaver()
+graph_app = graph.compile(checkpointer=memory)
 
 
 if __name__ == "__main__":

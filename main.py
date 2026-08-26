@@ -189,8 +189,9 @@ async def chat_endpoint(req: ChatRequest):
                 delivery_location=state.get("delivery_location"),
             )
 
-        # Invoke the LangGraph agent
-        state = graph_app.invoke(state)
+        # Invoke the LangGraph agent with session thread checkpointer config
+        config = {"configurable": {"thread_id": req.session_id}}
+        state = graph_app.invoke(state, config=config)
         _sessions[req.session_id] = state
 
         reply_text = extract_agent_response(state.get("messages", []))
@@ -222,6 +223,11 @@ async def reset_session(req: ChatRequest):
     if req.session_id in _sessions:
         del _sessions[req.session_id]
     return {"status": "reset", "session_id": req.session_id}
+
+# ----- Public & Storefront Catalog Endpoint -----
+@app.get("/api/catalog")
+async def get_public_catalog():
+    return {"products": CATALOG, "count": len(CATALOG)}
 
 # ----- A2A Catalog Endpoint -----
 @app.get("/api/agent/catalog")
