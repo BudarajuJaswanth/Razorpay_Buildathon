@@ -23,7 +23,16 @@ PORT = int(os.getenv("PORT", 8000))
 
 from storage import create_order, update_order_status, get_order, get_all_orders
 from guardrails import CATALOG, get_catalog_summary
-from agent import graph_app, AgentState, failure_recovery_node
+
+_AGENT_IMPORT_ERROR: str | None = None
+try:
+    from agent import graph_app, AgentState, failure_recovery_node
+except Exception as _e:
+    _AGENT_IMPORT_ERROR = str(_e)
+    graph_app = None  # type: ignore
+    AgentState = dict  # type: ignore
+    failure_recovery_node = None  # type: ignore
+
 
 app = FastAPI(title="KicksVault India — Razorpay Agentic Commerce API")
 
@@ -82,7 +91,15 @@ class AgentTransactResponse(BaseModel):
 # ----- Health -----
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "KicksVault India", "region": os.getenv("VERCEL_REGION", "local")}
+    return {
+        "status": "ok" if not _AGENT_IMPORT_ERROR else "degraded",
+        "service": "KicksVault India",
+        "region": os.getenv("VERCEL_REGION", "local"),
+        "agent": "loaded" if graph_app is not None else "failed",
+        "agent_error": _AGENT_IMPORT_ERROR,
+        "groq_key_set": bool(os.getenv("GROQ_API_KEY")),
+        "razorpay_key_set": bool(os.getenv("RAZORPAY_KEY_ID")),
+    }
 
 # ----- Root -----
 @app.get("/")
@@ -95,6 +112,11 @@ async def root_index():
 # ----- Chat Endpoint -----
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(req: ChatRequest):
+    if _AGENT_IMPORT_ERROR or graph_app is None:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Agent unavailable — check GROQ_API_KEY env var. Error: {_AGENT_IMPORT_ERROR}"
+        )
     state = _sessions.get(req.session_id)
     if not state:
         state = {

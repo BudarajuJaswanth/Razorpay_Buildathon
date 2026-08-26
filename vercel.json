@@ -11,8 +11,27 @@
   ],
   "routes": [
     {
+      "src": "/static/style.css",
+      "dest": "/static/style.css",
+      "headers": { "Cache-Control": "public, max-age=86400" }
+    },
+    {
+      "src": "/static/app.js",
+      "dest": "/static/app.js",
+      "headers": { "Cache-Control": "public, max-age=86400" }
+    },
+    {
+      "src": "/static/index.html",
+      "dest": "/static/index.html"
+    },
+    {
       "src": "/(.*)",
       "dest": "main.py"
     }
-  ]
+  ],
+  "functions": {
+    "main.py": {
+      "maxDuration": 60
+    }
+  }
 }

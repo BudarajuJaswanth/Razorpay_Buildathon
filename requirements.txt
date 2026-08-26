@@ -1,5 +1,5 @@
-fastapi[standard]
-uvicorn[standard]
+fastapi
+uvicorn
 python-dotenv
 pydantic>=2.0
 razorpay
