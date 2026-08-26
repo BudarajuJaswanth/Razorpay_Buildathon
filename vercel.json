@@ -3,35 +3,17 @@
   "builds": [
     {
       "src": "main.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb"
-      }
+      "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/static/style.css",
-      "dest": "/static/style.css",
-      "headers": { "Cache-Control": "public, max-age=86400" }
-    },
-    {
-      "src": "/static/app.js",
-      "dest": "/static/app.js",
-      "headers": { "Cache-Control": "public, max-age=86400" }
-    },
-    {
-      "src": "/static/index.html",
-      "dest": "/static/index.html"
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
     },
     {
       "src": "/(.*)",
-      "dest": "main.py"
+      "dest": "/main.py"
     }
-  ],
-  "functions": {
-    "main.py": {
-      "maxDuration": 60
-    }
-  }
+  ]
 }
