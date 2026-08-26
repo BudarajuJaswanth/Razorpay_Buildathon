@@ -128,11 +128,21 @@ async def chat_endpoint(req: ChatRequest):
     state = graph_app.invoke(state)
     _sessions[req.session_id] = state
 
-    ai_msg: BaseMessage = state["messages"][-1]
-    if not isinstance(ai_msg, AIMessage):
-        raise HTTPException(status_code=500, detail="Agent did not return an AIMessage")
+    # Find the last AIMessage (graph may append extra routing messages)
+    ai_msg = None
+    for msg in reversed(state.get("messages", [])):
+        if isinstance(msg, AIMessage):
+            ai_msg = msg
+            break
+
+    if ai_msg is None:
+        raise HTTPException(status_code=500, detail="Agent did not produce a reply")
+
+    # Safely encode content (handles special Unicode from LLM)
+    reply_text = str(ai_msg.content)
+
     return ChatResponse(
-        reply=ai_msg.content,
+        reply=reply_text,
         checkout_url=state.get("checkout_url"),
         guardrail_triggered=state.get("guardrail_triggered", False),
         agreed_price=state.get("agreed_price"),
