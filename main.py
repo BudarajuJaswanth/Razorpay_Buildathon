@@ -64,6 +64,7 @@ DEV_AUTH_TOKEN = os.getenv("DEV_AUTH_TOKEN", "dev-secret-token-razorpay-agentic-
 class ChatRequest(BaseModel):
     message: str
     session_id: str
+    location: Optional[str] = None
 
 class ChatResponse(BaseModel):
     reply: str
@@ -73,6 +74,7 @@ class ChatResponse(BaseModel):
     negotiation_stage: int = 0
     product_id: Optional[str] = None
     session_id: Optional[str] = None
+    delivery_location: Optional[str] = None
     error: Optional[str] = None
 
 class SimulationRequest(BaseModel):
@@ -140,8 +142,12 @@ async def chat_endpoint(req: ChatRequest):
                 "messages": [],
                 "customer_id": f"cust_{req.session_id[-6:]}",
                 "negotiation_stage": 0,
+                "delivery_location": req.location,
             }
             _sessions[req.session_id] = state
+
+        if req.location and not state.get("delivery_location"):
+            state["delivery_location"] = req.location
 
         # Check if there's a pending failure recovery for this session
         if _last_failed.get(req.session_id):
@@ -163,6 +169,7 @@ async def chat_endpoint(req: ChatRequest):
                 negotiation_stage=state.get("negotiation_stage", 0),
                 product_id=state.get("product_id"),
                 session_id=req.session_id,
+                delivery_location=state.get("delivery_location"),
             )
 
         # Invoke the LangGraph agent
@@ -179,6 +186,7 @@ async def chat_endpoint(req: ChatRequest):
             negotiation_stage=state.get("negotiation_stage", 0),
             product_id=state.get("product_id"),
             session_id=req.session_id,
+            delivery_location=state.get("delivery_location"),
         )
     except Exception as exc:
         import traceback

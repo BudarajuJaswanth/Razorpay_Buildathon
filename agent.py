@@ -33,6 +33,7 @@ class AgentState(TypedDict, total=False):
     negotiation_stage: int          # 0 = not started, 1 = stage 1, 2 = stage 2, 3 = final
     selected_product_id: Optional[str]
     failure_recovery: bool          # True when triggered by payment.failed
+    delivery_location: Optional[str]
 
 # ---------- LLM Initialization ----------
 groq_api_key = os.getenv("GROQ_API_KEY", "")
@@ -86,7 +87,7 @@ _PRODUCT_KEYWORDS: Dict[str, List[str]] = {
     "PROD_001": ["jordan", "chicago", "lost.*found", "aj1", "aj 1", "PROD_001"],
     "PROD_002": ["yeezy", "onyx", "boost 350", "PROD_002"],
     "PROD_003": ["dunk", "panda", "nike dunk", "PROD_003"],
-    "PROD_004": ["creaseguard", "shield kit", "care kit", "accessory", "PROD_004"],
+    "PROD_004": ["creaseguard", "care kit", "shield", "cleaner", "PROD_004"],
 }
 
 # ---------- Helpers ----------
@@ -130,22 +131,25 @@ def _detect_closing_price(text: str) -> Optional[float]:
 
 
 def _ensure_system_prompt(state: AgentState) -> None:
-    """Inject system prompt with catalog summary and negotiation rules."""
+    """Inject system prompt with catalog summary, strict margin protection rules, and delivery location collection."""
     if not any(isinstance(m, SystemMessage) for m in state.get("messages", [])):
         cat = get_catalog_summary()
-        system_content = f"""You are a premium, persuasive sales representative for KicksVault India — a luxury, authenticated sneaker exchange.
+        loc_context = f"Customer Destination: {state.get('delivery_location', 'Not specified yet')}"
+        system_content = f"""You are a luxury sneaker concierge and master merchant for KicksVault India — the premier authenticated deadstock sneaker exchange.
 
-CATALOG (your source of truth):
+CATALOG (source of truth):
 {cat}
+{loc_context}
 
-NEGOTIATION RULES — follow these strictly:
-1. STAGE 1 (First offer): Lead with craftsmanship, scarcity (mention exact stock count), and brand heritage. Offer at most a 4% goodwill discount off retail OR a complimentary CreaseGuard Shield Kit (PROD_004, value ₹1,499). Do NOT immediately jump to the floor price.
-2. STAGE 2 (Buyer pushes back): Present the arithmetic midpoint between retail and floor as a "best we can do" counter. Emphasize exclusivity and limited availability again.
-3. STAGE 3 (Buyer signals immediate intent): If the buyer explicitly says they will buy NOW at a specific price (e.g., "I'll buy it for ₹X right now"), and that price is at or above the floor price, emit the exact payment tag: [ACTION:CREATE_PAYMENT | product_id: <PRODUCT_ID> | price: <PRICE>]
-4. HARD FLOOR INVARIANT: NEVER offer or accept any price below `floor_price`. If a buyer demands below floor, explain that KicksVault India maintains strict brand margin commitments and cannot proceed below that floor. Do NOT emit a payment tag for sub-floor requests.
-5. TONE: Warm, confident, knowledgeable. Reference the product's story, authentication process, and collector value. Use ₹ symbol for prices.
-
-When a buyer is negotiating, stay in character and follow the stage sequence. Do NOT skip stages unless the buyer explicitly confirms they are ready to transact.
+PRICING & NEGOTIATION POLICY — STRICTLY ENFORCED:
+1. PRESERVE VALUE & MARGINS: KicksVault inventory consists of rare, 100% verified authentic deadstock pairs with tamper-evident NFC tags. Never give large or unearned discounts. Do NOT collapse prices to the floor.
+2. STAGE 1 (Inquiry / First Offer): Anchor firmly at retail price. Highlight craftsmanship, physical authenticity verification, and limited stock count. You may offer AT MOST a 2% goodwill VIP discount OR a complimentary CreaseGuard Care Kit (PROD_004, value ₹1,499).
+3. STAGE 2 (Buyer Bargains / Pushes Back): If the customer pushes back on price, counter with the Stage-2 price (at most 5% off retail) as our absolute best courtesy offer. Emphasize that replacement market cost is steadily climbing.
+4. STAGE 3 (Deal Closing & Immediate Intent): If the buyer agrees to buy or makes a firm immediate offer (at or above floor price), confirm the locked-in price, ensure delivery location is noted, and emit EXACTLY:
+   [ACTION:CREATE_PAYMENT | product_id: <PRODUCT_ID> | price: <PRICE>]
+5. HARD FLOOR INVARIANT: NEVER accept or propose any price below `floor_price`. Respectfully explain that high-grade authentication margins prohibit selling below floor.
+6. DELIVERY LOCATION: Ask or confirm the buyer's delivery destination/city in India (e.g., "Where in India should we dispatch your vault-authenticated pair?"). If location is known, acknowledge express insured shipping to their city.
+7. TONE: Sophisticated, knowledgeable, firm on value, hospitable. Always format prices with the ₹ symbol.
 """
         state.setdefault("messages", []).insert(0, SystemMessage(content=system_content))
 
@@ -280,6 +284,7 @@ def payment_tool_node(state: AgentState) -> AgentState:
     product = get_product(product_id)
     customer_id = state.get("customer_id", f"cust_{uuid.uuid4().hex[:8]}")
 
+    destination = state.get("delivery_location") or "India (Standard Insured Vault Express)"
     try:
         import razorpay
         client = razorpay.Client(auth=(os.getenv("RAZORPAY_KEY_ID"), os.getenv("RAZORPAY_KEY_SECRET")))
@@ -297,6 +302,7 @@ def payment_tool_node(state: AgentState) -> AgentState:
             "notes": {
                 "product_id": product_id,
                 "customer_id": customer_id,
+                "delivery_destination": destination,
                 "platform": "KicksVault India Agentic Commerce",
             },
         }
@@ -318,8 +324,9 @@ def payment_tool_node(state: AgentState) -> AgentState:
         f"🎉 Deal locked in! Here are your purchase details:\n\n"
         f"**Product:** {product['name']}\n"
         f"**Final Price:** ₹{final_price:,.2f} INR\n"
+        f"**Delivery Destination:** 📍 {destination}\n"
         f"**Payment Link:** {short_url}\n\n"
-        f"Complete your payment using any UPI, card, or netbanking method via Razorpay."
+        f"Complete your payment using any UPI, card, or netbanking method via Razorpay. Your pair will be dispatched via priority insured courier."
     )
     state["messages"].append(AIMessage(content=confirmation_msg))
     return state

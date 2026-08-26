@@ -29,18 +29,18 @@ class TestGuardrails(unittest.TestCase):
         final_price = proposal.validate_and_compute_final_price()
         self.assertEqual(final_price, CATALOG["PROD_003"]["retail_price"])
 
-    def test_stage1_price_is_four_percent_off_retail(self):
-        """Stage 1 price should be exactly 96% of retail price."""
+    def test_stage1_price_is_two_percent_off_retail(self):
+        """Stage 1 price should be exactly 98% of retail price."""
         for prod_id in CATALOG:
             retail = CATALOG[prod_id]["retail_price"]
-            expected = round(retail * 0.96, 2)
+            expected = round(retail * 0.98, 2)
             self.assertAlmostEqual(get_stage1_price(prod_id), expected, places=2)
 
-    def test_stage2_price_is_midpoint(self):
-        """Stage 2 price should be the arithmetic midpoint of retail and floor."""
+    def test_stage2_price_is_five_percent_off_retail(self):
+        """Stage 2 price should be exactly 95% of retail price."""
         for prod_id in CATALOG:
-            p = CATALOG[prod_id]
-            expected = round((p["retail_price"] + p["floor_price"]) / 2, 2)
+            retail = CATALOG[prod_id]["retail_price"]
+            expected = round(retail * 0.95, 2)
             self.assertAlmostEqual(get_stage2_price(prod_id), expected, places=2)
 
     def test_is_below_floor(self):

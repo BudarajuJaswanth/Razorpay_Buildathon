@@ -78,15 +78,15 @@ class PaymentProposal(BaseModel):
 
 
 def get_stage1_price(product_id: str) -> float:
-    """Stage 1: 4% goodwill discount off retail price."""
+    """Stage 1: 2% goodwill VIP discount off retail price (tight margin anchor)."""
     retail = CATALOG[product_id]["retail_price"]
-    return round(retail * 0.96, 2)
+    return round(retail * 0.98, 2)
 
 
 def get_stage2_price(product_id: str) -> float:
-    """Stage 2: arithmetic midpoint between retail and floor price."""
-    p = CATALOG[product_id]
-    return round((p["retail_price"] + p["floor_price"]) / 2, 2)
+    """Stage 2: Conservative 5% counter-offer off retail (preserves high merchant margin)."""
+    retail = CATALOG[product_id]["retail_price"]
+    return round(retail * 0.95, 2)
 
 
 def get_catalog_summary() -> str:

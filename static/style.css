@@ -357,6 +357,16 @@ body>*{position:relative;z-index:1}
   color:var(--indigo-bright);flex-shrink:0;
 }
 
+/* Delivery Location Bar */
+.delivery-location-bar {
+  transition: all 0.2s ease;
+  background: rgba(22, 22, 28, 0.7);
+  backdrop-filter: blur(12px);
+}
+.delivery-location-bar:hover {
+  border-color: rgba(99, 102, 241, 0.3) !important;
+}
+
 /* Messages */
 #chat-messages{
   flex:1;overflow-y:auto;

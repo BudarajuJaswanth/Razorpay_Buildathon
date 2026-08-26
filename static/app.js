@@ -49,6 +49,8 @@ let currentCheckout = null;
 let isSending = false;
 const DEV_TOKEN = 'dev-secret-token-razorpay-agentic-2026';
 
+let userDeliveryLocation = localStorage.getItem('kv_delivery_location') || 'India (Standard Courier)';
+
 function generateSessionId() {
   return `sess_${Math.random().toString(36).slice(2,8)}_${Date.now().toString(36)}`;
 }
@@ -60,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
   lucide.createIcons();
   initClock();
   initSession();
+  initLocation();
   initNav();
   initChat();
   initHUD();
@@ -68,6 +71,95 @@ document.addEventListener('DOMContentLoaded', () => {
   startFailurePoller();
   showPage('page-storefront');
 });
+
+// ============================================================
+//  LOCATION / GEOLOCATION DETECTION
+// ============================================================
+function initLocation() {
+  updateLocationUI();
+
+  document.getElementById('btn-detect-location')?.addEventListener('click', detectUserLocation);
+  document.getElementById('btn-manual-location')?.addEventListener('click', promptManualLocation);
+}
+
+function updateLocationUI() {
+  const el = document.getElementById('delivery-location-display');
+  if (el) {
+    el.textContent = userDeliveryLocation;
+  }
+}
+
+function detectUserLocation() {
+  const btn = document.getElementById('btn-detect-location');
+  if (!navigator.geolocation) {
+    alert('Geolocation is not supported by your browser. Please enter your city manually.');
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="spin" style="width:12px;height:12px"></i> Requesting…`;
+    lucide.createIcons();
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      logTerminal('info', `[LOCATION] Geolocation permitted: ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+
+      try {
+        // Reverse geocoding using open client-side endpoint
+        const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+        if (res.ok) {
+          const locData = await res.json();
+          const city = locData.city || locData.locality || locData.principalSubdivision || 'India';
+          const state = locData.principalSubdivision || '';
+          const postcode = locData.postcode ? ` (${locData.postcode})` : '';
+          userDeliveryLocation = `${city}${state && state !== city ? ', ' + state : ''}${postcode}`;
+        } else {
+          userDeliveryLocation = `Lat: ${lat.toFixed(2)}, Lon: ${lon.toFixed(2)} (India)`;
+        }
+      } catch (_) {
+        userDeliveryLocation = `India (Coordinates: ${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E)`;
+      }
+
+      localStorage.setItem('kv_delivery_location', userDeliveryLocation);
+      updateLocationUI();
+      logTerminal('ok', `[LOCATION] Destination locked: 📍 ${userDeliveryLocation}`);
+
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="check" style="width:12px;height:12px;color:var(--emerald)"></i> Detected`;
+        setTimeout(() => {
+          btn.innerHTML = `<i data-lucide="crosshair" style="width:12px;height:12px"></i> Detect Location`;
+          lucide.createIcons();
+        }, 3000);
+      }
+      lucide.createIcons();
+    },
+    (error) => {
+      logTerminal('warn', `[LOCATION] Geolocation permission denied or failed: ${error.message}`);
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="crosshair" style="width:12px;height:12px"></i> Detect Location`;
+        lucide.createIcons();
+      }
+      promptManualLocation();
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+  );
+}
+
+function promptManualLocation() {
+  const city = prompt('Enter your delivery city / postal code in India:', userDeliveryLocation.replace('India (Standard Courier)', ''));
+  if (city && city.trim()) {
+    userDeliveryLocation = city.trim();
+    localStorage.setItem('kv_delivery_location', userDeliveryLocation);
+    updateLocationUI();
+    logTerminal('ok', `[LOCATION] Destination updated manually: 📍 ${userDeliveryLocation}`);
+  }
+}
 
 // ============================================================
 //  CLOCK
@@ -164,7 +256,7 @@ function renderProductGrid() {
         const local = PRODUCTS[prodId] || {};
         const image = local.image || 'https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=800&q=80';
         const badges = local.badges || [['In Stock', 'emerald']];
-        const stage1 = Math.round(prod.retail_price * 0.96);
+        const stage1 = Math.round(prod.retail_price * 0.98);
 
         const card = document.createElement('div');
         card.className = 'product-card';
@@ -187,7 +279,7 @@ function renderProductGrid() {
             <div class="card-footer">
               <div>
                 <div class="card-price">₹${Number(prod.retail_price).toLocaleString('en-IN')}</div>
-                <div class="card-stock">${prod.stock} in stock · AI from ₹${Number(stage1).toLocaleString('en-IN')}</div>
+                <div class="card-stock">${prod.stock} in stock · AI VIP ₹${Number(stage1).toLocaleString('en-IN')}</div>
               </div>
             </div>
             <button class="negotiate-btn" data-prod-id="${prodId}">
@@ -217,7 +309,7 @@ function renderLocalCard(grid, prodId, prod) {
     const c = BADGE_COLORS[color] || BADGE_COLORS.emerald;
     return `<span style="background:${c.bg};color:${c.color};border:1px solid ${c.border};padding:3px 9px;border-radius:99px;font-size:9px;font-weight:800;letter-spacing:0.07em;text-transform:uppercase">${label}</span>`;
   }).join('');
-  const stage1 = Math.round(prod.price * 0.96);
+  const stage1 = Math.round(prod.price * 0.98);
   card.innerHTML = `
     <div class="card-img-wrap">
       <img src="${prod.image}" alt="${prod.name}" loading="lazy"/>
@@ -231,7 +323,7 @@ function renderLocalCard(grid, prodId, prod) {
       <div class="card-footer">
         <div>
           <div class="card-price">₹${prod.price.toLocaleString('en-IN')}</div>
-          <div class="card-stock">${prod.stock} in stock · AI from ₹${stage1.toLocaleString('en-IN')}</div>
+          <div class="card-stock">${prod.stock} in stock · AI VIP ₹${stage1.toLocaleString('en-IN')}</div>
         </div>
       </div>
       <button class="negotiate-btn" data-prod-id="${prodId}">
@@ -293,7 +385,11 @@ async function sendMessage() {
     const resp = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, session_id: sessionId })
+      body: JSON.stringify({
+        message: text,
+        session_id: sessionId,
+        location: userDeliveryLocation
+      })
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
@@ -302,6 +398,12 @@ async function sendMessage() {
     appendAgent(data.reply);
     updateStageBadge(data.negotiation_stage);
     logMini(`[AGENT] ${data.reply.slice(0, 80)}${data.reply.length > 80 ? '…' : ''}`);
+
+    if (data.delivery_location && data.delivery_location !== userDeliveryLocation) {
+      userDeliveryLocation = data.delivery_location;
+      localStorage.setItem('kv_delivery_location', userDeliveryLocation);
+      updateLocationUI();
+    }
 
     if (data.guardrail_triggered) {
       showGuardrailAlert(`🛡️ Sentinel enforced: price adjusted to ₹${Number(data.agreed_price).toLocaleString('en-IN')} (floor guardrail active).`);
@@ -314,6 +416,7 @@ async function sendMessage() {
     if (data.checkout_url) {
       renderCheckoutCard(data);
       logTerminal('ok', `[PAYMENT LINK] Created — ₹${data.agreed_price} · ${data.product_id}`);
+      logTerminal('ok', `[DESTINATION] Priority delivery routed to: 📍 ${userDeliveryLocation}`);
       logTerminal('ok', `[URL] ${data.checkout_url}`);
     }
 

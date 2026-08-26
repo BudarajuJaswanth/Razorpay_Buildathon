@@ -139,6 +139,24 @@
         <div class="stage-badge" id="stage-badge">Stage: Idle</div>
       </div>
 
+      <!-- Delivery Destination Selector / Geolocation bar -->
+      <div class="delivery-location-bar glass" style="margin-bottom:10px;padding:8px 14px;border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;border:1px solid rgba(255,255,255,0.08)">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <i data-lucide="map-pin" style="width:14px;height:14px;color:var(--indigo-bright);flex-shrink:0"></i>
+          <span style="color:var(--text-muted);font-size:11px">Dispatch Destination:</span>
+          <span id="delivery-location-display" style="font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">India (Standard Courier)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <button id="btn-detect-location" class="btn btn-secondary btn-sm" style="padding:4px 10px;font-size:11px;display:flex;align-items:center;gap:4px">
+            <i data-lucide="crosshair" style="width:12px;height:12px"></i>
+            Detect My Location
+          </button>
+          <button id="btn-manual-location" class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:11px">
+            Set City
+          </button>
+        </div>
+      </div>
+
       <!-- Guardrail alert -->
       <div id="guardrail-alert" class="guardrail-alert" style="display:none;margin-bottom:10px">
         <i data-lucide="shield" style="width:14px;height:14px;flex-shrink:0"></i>
@@ -153,7 +171,7 @@
           </div>
           <div class="chat-bubble bubble-agent">
             <strong style="color:var(--indigo-bright)">KicksVault AI</strong>
-            <p style="margin-top:4px">Welcome to <strong>KicksVault India</strong> — the certified luxury sneaker exchange.<br><br>I'm your autonomous AI concierge. Ask me about any sneaker, name your price, or click <em>Negotiate Deal</em> on any product card to start bargaining.</p>
+            <p style="margin-top:4px">Welcome to <strong>KicksVault India</strong> — the certified luxury sneaker exchange.<br><br>I'm your autonomous AI concierge. Inquire about any deadstock sneaker in our vault, negotiate your best price, or share your city for express armored delivery routing.</p>
           </div>
         </div>
       </div>
@@ -161,10 +179,10 @@
       <!-- Prompt chips -->
       <div class="chips-wrap">
         <button class="chip" data-prompt="Tell me about the Air Jordan 1 Chicago Lost & Found. How rare is it?">👟 Inquire Chicago AJ1</button>
-        <button class="chip" data-prompt="I'd like to offer ₹22,000 for the Air Jordan 1 Chicago. Is that a deal?">📉 Offer ₹22,000</button>
-        <button class="chip" data-prompt="I'll buy the Air Jordan 1 PROD_001 right now for ₹22,500. Let's close the deal.">⚡ Buy AJ1 Now</button>
-        <button class="chip" data-prompt="What's the best price you can do for the Yeezy Boost 350 Onyx?">💛 Yeezy Onyx Price</button>
-        <button class="chip" data-prompt="Tell me about the Nike Dunk Low Panda. Can I get a deal?">🐼 Dunk Panda Deal</button>
+        <button class="chip" data-prompt="What's the best price for Chicago AJ1 delivered to Mumbai?">📍 Deliver to Mumbai</button>
+        <button class="chip" data-prompt="I'd like to negotiate a VIP deal for the Yeezy Boost 350 Onyx.">💛 Yeezy Onyx Price</button>
+        <button class="chip" data-prompt="I'll buy the Chicago AJ1 PROD_001 right now for ₹24,000. Let's close the deal.">⚡ Buy AJ1 Now</button>
+        <button class="chip" data-prompt="Can you arrange express delivery to Bangalore within 3 days?">🚀 Express Bangalore</button>
       </div>
 
       <!-- Input -->
