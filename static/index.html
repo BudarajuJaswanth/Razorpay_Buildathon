@@ -837,72 +837,142 @@
 </section>
 
 <!-- ============================================================
-     RAZORPAY SANDBOX CHECKOUT MODAL
+     PRE-CHECKOUT PHONE COLLECTION MODAL
      ============================================================ -->
-<div id="razorpay-modal" class="auth-overlay" style="display:none">
-  <div class="auth-card" style="max-width:480px;text-align:left">
+<div id="phone-collect-modal" class="auth-overlay" style="display:none">
+  <div class="auth-card" style="max-width:420px;text-align:left">
+
     <!-- Header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)">
-      <div style="display:flex;align-items:center;gap:8px">
-        <div style="width:32px;height:32px;border-radius:8px;background:#0c2340;display:flex;align-items:center;justify-content:center;border:1px solid #1a365d">
-          <i data-lucide="zap" style="width:16px;height:16px;color:#3395ff"></i>
-        </div>
-        <div>
-          <div style="font-size:13px;font-weight:800;color:#fff;letter-spacing:-0.01em">Razorpay Sandbox Gateway</div>
-          <div style="font-size:10px;color:var(--emerald);font-family:var(--font-mono)">● 256-Bit Encrypted Testnet</div>
-        </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#1a3a6e,#0c2340);border:1px solid #1e4080;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i data-lucide="zap" style="width:20px;height:20px;color:#3395ff"></i>
       </div>
-      <button id="btn-close-rzp" class="btn-ghost btn-sm" style="padding:4px 8px;font-size:12px">✕</button>
+      <div>
+        <div style="font-size:15px;font-weight:800;color:#fff">Razorpay Secure Checkout</div>
+        <div style="font-size:11px;color:var(--emerald);font-family:var(--font-mono)">● Test Mode Active</div>
+      </div>
     </div>
 
-    <!-- Order Item Summary -->
-    <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:16px">
-      <img id="rzp-item-img" src="" alt="Sneaker" style="width:48px;height:48px;border-radius:8px;object-fit:cover;border:1px solid rgba(255,255,255,0.1)"/>
-      <div style="flex:1">
-        <div id="rzp-item-name" style="font-size:12px;font-weight:700;color:var(--text-primary)">Air Jordan 1 High OG</div>
-        <div style="font-size:10px;color:var(--text-secondary);margin-top:2px">
-          Order: <span id="rzp-item-order-id" style="font-family:var(--font-mono);color:var(--indigo-bright)">order_sim_123</span>
-        </div>
+    <!-- Order summary strip -->
+    <div id="phone-modal-summary" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:18px;display:flex;align-items:center;gap:10px">
+      <img id="phone-modal-img" src="" alt="Product" style="width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid rgba(255,255,255,0.1);flex-shrink:0"/>
+      <div style="flex:1;min-width:0">
+        <div id="phone-modal-product" style="font-size:12px;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+        <div id="phone-modal-order" style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted);margin-top:2px">—</div>
       </div>
-      <div style="text-align:right">
+      <div style="text-align:right;flex-shrink:0">
         <div style="font-size:10px;color:var(--text-muted)">AGREED PRICE</div>
-        <div id="rzp-item-price" style="font-size:16px;font-weight:900;color:var(--emerald)">₹22,374.75</div>
+        <div id="phone-modal-amount" style="font-size:16px;font-weight:900;color:var(--emerald)">₹—</div>
       </div>
     </div>
 
-    <!-- Payment Methods -->
-    <div style="margin-bottom:16px">
-      <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Select Payment Mode</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-        <button class="rzp-method-btn active" data-method="upi" id="tab-rzp-upi">
-          <i data-lucide="smartphone" style="width:16px;height:16px"></i>
-          <span>UPI / QR</span>
-        </button>
-        <button class="rzp-method-btn" data-method="card" id="tab-rzp-card">
-          <i data-lucide="credit-card" style="width:16px;height:16px"></i>
-          <span>Card</span>
-        </button>
-        <button class="rzp-method-btn" data-method="netbanking" id="tab-rzp-netbanking">
-          <i data-lucide="landmark" style="width:16px;height:16px"></i>
-          <span>NetBanking</span>
-        </button>
-      </div>
+    <!-- Name field -->
+    <div style="margin-bottom:12px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:0.06em;color:var(--text-muted);font-family:var(--font-mono);display:block;margin-bottom:6px">FULL NAME</label>
+      <input id="checkout-name" type="text" placeholder="Arjun Sharma"
+        style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--text-primary);outline:none;box-sizing:border-box;transition:border-color 0.2s"
+        onfocus="this.style.borderColor='var(--indigo-bright)'" onblur="this.style.borderColor='var(--border)'"/>
     </div>
 
-    <!-- Payment Mode Dynamic Content -->
-    <div id="rzp-method-content" style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:18px">
-      <!-- Populated dynamically by updateRazorpayMethodUI() -->
+    <!-- Email field -->
+    <div style="margin-bottom:12px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:0.06em;color:var(--text-muted);font-family:var(--font-mono);display:block;margin-bottom:6px">EMAIL ADDRESS</label>
+      <input id="checkout-email" type="email" placeholder="arjun@example.com"
+        style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--text-primary);outline:none;box-sizing:border-box;transition:border-color 0.2s"
+        onfocus="this.style.borderColor='var(--indigo-bright)'" onblur="this.style.borderColor='var(--border)'"/>
     </div>
+
+    <!-- Phone field -->
+    <div style="margin-bottom:18px">
+      <label style="font-size:10px;font-weight:700;letter-spacing:0.06em;color:var(--text-muted);font-family:var(--font-mono);display:block;margin-bottom:6px">MOBILE NUMBER</label>
+      <div style="display:flex;gap:8px">
+        <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--text-muted);font-weight:600;flex-shrink:0">🇮🇳 +91</div>
+        <input id="checkout-phone" type="tel" placeholder="9876543210" maxlength="10"
+          style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-mono);color:var(--text-primary);outline:none;box-sizing:border-box;transition:border-color 0.2s;letter-spacing:0.05em"
+          onfocus="this.style.borderColor='var(--indigo-bright)'" onblur="this.style.borderColor='var(--border)'"/>
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:5px">Used to prefill Razorpay — no calls or SMS.</div>
+    </div>
+
+    <!-- Error message -->
+    <div id="phone-modal-error" style="display:none;padding:8px 12px;border-radius:8px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:#fca5a5;font-size:11px;margin-bottom:12px"></div>
 
     <!-- Actions -->
-    <div style="display:flex;flex-direction:column;gap:8px">
-      <button id="btn-rzp-pay-confirm" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;font-size:13px;background:linear-gradient(135deg,#10b981,#059669)">
-        <i data-lucide="shield-check" style="width:16px;height:16px"></i>
-        <span>Authorize & Pay <span id="rzp-btn-amount">₹22,374.75</span></span>
-      </button>
-      <button id="btn-rzp-sim-fail" class="btn btn-ghost" style="width:100%;justify-content:center;font-size:11px;color:var(--red);border-color:rgba(248,113,113,0.3)">
-        <i data-lucide="alert-triangle" style="width:13px;height:13px"></i>
-        Simulate Bank Dropout / Timeout Failure
+    <button id="btn-proceed-razorpay" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;border-radius:12px;border:none;cursor:pointer;font-size:13px;font-weight:800;background:linear-gradient(135deg,#3395ff,#1a7ee0);color:#fff;letter-spacing:0.01em;box-shadow:0 4px 20px rgba(51,149,255,0.3);transition:opacity 0.2s">
+      <i data-lucide="zap" style="width:15px;height:15px"></i>
+      Open Razorpay Checkout →
+    </button>
+    <button id="btn-cancel-phone-modal" style="width:100%;margin-top:8px;padding:10px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer">Cancel</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     PAYMENT SUCCESS SCREEN (full-page overlay)
+     ============================================================ -->
+<div id="payment-success-screen" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--surface-1);overflow-y:auto">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 16px">
+    <div style="max-width:520px;width:100%;text-align:center">
+
+      <!-- Animated checkmark -->
+      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,rgba(16,185,129,0.2),rgba(16,185,129,0.05));border:2px solid rgba(16,185,129,0.4);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;animation:pulseGlow 2s ease-in-out infinite">
+        <i data-lucide="check-circle" style="width:36px;height:36px;color:var(--emerald)"></i>
+      </div>
+
+      <h1 style="font-size:28px;font-weight:900;letter-spacing:-0.03em;color:var(--text-primary);margin-bottom:8px">Payment Confirmed! 🎉</h1>
+      <p style="font-size:14px;color:var(--text-secondary);margin-bottom:32px;line-height:1.6">Your transaction was successfully verified on Razorpay testnet.<br>Your order is confirmed and queued for dispatch.</p>
+
+      <!-- Order Details Card -->
+      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:24px;text-align:left">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:16px">ORDER RECEIPT</div>
+
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border)">
+          <img id="success-product-img" src="" alt="Product" style="width:60px;height:60px;border-radius:10px;object-fit:cover;border:1px solid rgba(255,255,255,0.1);flex-shrink:0"/>
+          <div>
+            <div id="success-product-name" style="font-size:14px;font-weight:700;color:var(--text-primary)">—</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">KicksVault Certified · NFC Authenticated</div>
+          </div>
+          <div style="margin-left:auto;text-align:right;flex-shrink:0">
+            <div style="font-size:10px;color:var(--text-muted)">PAID</div>
+            <div id="success-amount" style="font-size:20px;font-weight:900;color:var(--emerald)">₹—</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:12px">
+            <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:4px">ORDER ID</div>
+            <div id="success-order-id" style="font-size:11px;font-family:var(--font-mono);color:var(--indigo-bright);word-break:break-all">—</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:12px">
+            <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:4px">PAYMENT ID</div>
+            <div id="success-payment-id" style="font-size:11px;font-family:var(--font-mono);color:var(--indigo-bright);word-break:break-all">—</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:12px">
+            <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:4px">STATUS</div>
+            <div style="display:flex;align-items:center;gap:5px">
+              <span style="width:7px;height:7px;border-radius:50%;background:var(--emerald)"></span>
+              <span style="font-size:11px;font-weight:800;color:var(--emerald)">PAID · VERIFIED</span>
+            </div>
+          </div>
+          <div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:12px">
+            <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:4px">DELIVERY TO</div>
+            <div id="success-delivery" style="font-size:11px;color:var(--text-secondary)">—</div>
+          </div>
+        </div>
+
+        <!-- HMAC verification chip -->
+        <div style="margin-top:14px;padding:10px 14px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;display:flex;align-items:center;gap:8px">
+          <i data-lucide="shield-check" style="width:14px;height:14px;color:var(--emerald);flex-shrink:0"></i>
+          <div>
+            <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--emerald);font-family:var(--font-mono)">HMAC-SHA256 SIGNATURE VERIFIED</div>
+            <div id="success-hmac" style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted);margin-top:2px;word-break:break-all">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Return button -->
+      <button id="btn-back-to-app" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 32px;border-radius:12px;border:none;cursor:pointer;font-size:13px;font-weight:800;background:linear-gradient(135deg,var(--indigo),var(--indigo-dim));color:#fff;margin:0 auto;box-shadow:var(--shadow-indigo);transition:opacity 0.2s">
+        <i data-lucide="arrow-left" style="width:15px;height:15px"></i>
+        Back to KicksVault
       </button>
     </div>
   </div>

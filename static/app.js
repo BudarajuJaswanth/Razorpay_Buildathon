@@ -106,6 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initNav();
   initChat();
   initHUD();
+  initPhoneCollectModal();
   initCustomerSimDeck();
   initInventoryManager();
   renderProductGrid();
@@ -878,6 +879,105 @@ async function runCustomerSim(type) {
   }
 }
 
+// ============================================================
+//  PHONE COLLECTION MODAL — shown BEFORE Razorpay opens
+// ============================================================
+function openPhoneCollectModal(checkoutData) {
+  if (!checkoutData) return;
+
+  // Pre-fill from currentUser
+  const nameEl  = document.getElementById('checkout-name');
+  const emailEl = document.getElementById('checkout-email');
+  if (nameEl)  nameEl.value  = currentUser.name  !== 'Verified Collector' ? currentUser.name  : '';
+  if (emailEl) emailEl.value = currentUser.email !== 'collector@kicksvault.in' ? currentUser.email : '';
+
+  // Populate summary strip
+  const prod = PRODUCTS[checkoutData.product_id] || {};
+  const img   = document.getElementById('phone-modal-img');
+  const prodEl= document.getElementById('phone-modal-product');
+  const ordEl = document.getElementById('phone-modal-order');
+  const amtEl = document.getElementById('phone-modal-amount');
+  if (img)    img.src = prod.image || '';
+  if (prodEl) prodEl.textContent = prod.name || checkoutData.product_id;
+  if (ordEl)  ordEl.textContent  = checkoutData.order_id || `order_${Date.now()}`;
+  if (amtEl)  amtEl.textContent  = `₹${Number(checkoutData.amount).toLocaleString('en-IN')}`;
+
+  // Hide error
+  const err = document.getElementById('phone-modal-error');
+  if (err) err.style.display = 'none';
+
+  // Store pending checkout
+  window._pendingCheckout = checkoutData;
+
+  const modal = document.getElementById('phone-collect-modal');
+  if (modal) { modal.style.display = 'flex'; lucide.createIcons(); }
+}
+
+function closePhoneCollectModal() {
+  const modal = document.getElementById('phone-collect-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function initPhoneCollectModal() {
+  document.getElementById('btn-cancel-phone-modal')?.addEventListener('click', closePhoneCollectModal);
+  document.getElementById('btn-proceed-razorpay')?.addEventListener('click', async () => {
+    const phone = (document.getElementById('checkout-phone')?.value || '').trim();
+    const name  = (document.getElementById('checkout-name')?.value  || '').trim();
+    const email = (document.getElementById('checkout-email')?.value || '').trim();
+    const err   = document.getElementById('phone-modal-error');
+
+    if (!phone || phone.length < 10) {
+      if (err) { err.style.display = 'block'; err.textContent = '⚠ Please enter a valid 10-digit mobile number.'; }
+      return;
+    }
+
+    closePhoneCollectModal();
+    if (window._pendingCheckout) {
+      window._pendingCheckout._phone = '+91' + phone;
+      window._pendingCheckout._name  = name  || currentUser.name;
+      window._pendingCheckout._email = email || currentUser.email;
+      await launchOfficialRazorpayCheckout(window._pendingCheckout);
+    }
+  });
+
+  // Also wire the checkout-link button to open phone modal instead
+  document.getElementById('checkout-link')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (currentCheckout) openPhoneCollectModal(currentCheckout);
+  });
+
+  // Back-to-app button on success screen
+  document.getElementById('btn-back-to-app')?.addEventListener('click', () => {
+    document.getElementById('payment-success-screen').style.display = 'none';
+    showPage('page-chat');
+    pollOrders();
+  });
+}
+
+// ============================================================
+//  SHOW PAYMENT SUCCESS SCREEN (full-page)
+// ============================================================
+function showPaymentSuccessScreen({ orderId, paymentId, amount, productId, hmac }) {
+  const screen = document.getElementById('payment-success-screen');
+  if (!screen) return;
+
+  const prod = PRODUCTS[productId] || {};
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  const setImg = (id, src) => { const el = document.getElementById(id); if (el) el.src = src; };
+
+  setImg('success-product-img', prod.image || '');
+  setEl('success-product-name', prod.name || productId);
+  setEl('success-amount', `₹${Number(amount).toLocaleString('en-IN')}`);
+  setEl('success-order-id', orderId);
+  setEl('success-payment-id', paymentId || '—');
+  setEl('success-delivery', userDeliveryLocation || 'India');
+  setEl('success-hmac', hmac ? hmac.slice(0, 48) + '…' : '—');
+
+  screen.style.display = 'block';
+  lucide.createIcons();
+  window.scrollTo(0, 0);
+}
+
 async function launchOfficialRazorpayCheckout(checkoutData) {
   if (!checkoutData) return;
 
@@ -922,9 +1022,9 @@ async function launchOfficialRazorpayCheckout(checkoutData) {
         image: "https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=200&q=80",
         order_id: (order.order_id && order.order_id.startsWith('order_') && !order.order_id.startsWith('order_local_')) ? order.order_id : undefined,
         prefill: {
-          name: currentUser.name || "Verified Collector",
-          email: currentUser.email || "collector@kicksvault.in",
-          contact: "9876543210"
+          name: checkoutData._name  || currentUser.name  || "Verified Collector",
+          email: checkoutData._email || currentUser.email || "collector@kicksvault.in",
+          contact: checkoutData._phone || "9876543210"
         },
         notes: {
           product_id: order.product_id,
@@ -961,6 +1061,15 @@ async function launchOfficialRazorpayCheckout(checkoutData) {
             renderPaymentSuccessCard(order.order_id, order.amount, order.product_id, vData.signature);
             appendAgent(`🎉 **Real Razorpay Test Payment Confirmed!** Payment ID \`${response.razorpay_payment_id}\` verified. Order \`${order.order_id}\` is marked as PAID and deadstock physical authentication tag is registered for dispatch to 📍 **${userDeliveryLocation}**.`);
             await pollOrders();
+
+            // Show full-page success screen
+            showPaymentSuccessScreen({
+              orderId:   order.order_id,
+              paymentId: response.razorpay_payment_id,
+              amount:    order.amount,
+              productId: order.product_id,
+              hmac:      vData.signature
+            });
           } catch (e) {
             logTerminal('warn', `Payment verification notice: ${e.message}`);
           }
