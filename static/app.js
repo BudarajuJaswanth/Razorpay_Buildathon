@@ -78,15 +78,86 @@ let currentCheckout = null;
 let isSending = false;
 let chatHistory = [];
 const DEV_TOKEN = 'dev-secret-token-razorpay-agentic-2026';
+let pageHistory = ['page-storefront'];
 
-let currentUser = JSON.parse(localStorage.getItem('kv_user') || 'null') || {
-  user_id: 'usr_collector',
-  role: 'user',
-  name: 'Verified Collector',
-  email: 'collector@kicksvault.in',
-  avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-  token: 'guest_token'
+const PAGE_TITLES = {
+  'page-storefront': 'Storefront',
+  'page-chat': 'AI Concierge',
+  'page-story': 'Brand Story',
+  'page-roadmap': 'Roadmap',
+  'page-admin': 'Admin Panel'
 };
+
+let currentUser = null;
+
+// Global Session Check & Fetch Interceptor
+const originalFetch = window.fetch;
+window.fetch = async function(...args) {
+  if (checkSessionExpiry()) {
+    return new Response(JSON.stringify({ detail: "Session expired. Please sign in again." }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+  
+  let token = localStorage.getItem('auth_token');
+  if (token) {
+    if (!args[1]) args[1] = {};
+    if (!args[1].headers) args[1].headers = {};
+    
+    // Attach authorization header if not already present
+    if (!args[1].headers['Authorization'] && !args[0].includes('g_id_onload')) {
+      args[1].headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    let userStr = localStorage.getItem('auth_user');
+    if (userStr) {
+      try {
+        let u = JSON.parse(userStr);
+        if (!args[1].headers['X-User-Role']) {
+          args[1].headers['X-User-Role'] = u.role;
+        }
+      } catch (_) {}
+    }
+  }
+  return originalFetch.apply(this, args);
+};
+
+function clearAuthSession() {
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('auth_user');
+  localStorage.removeItem('auth_expires_at');
+  localStorage.removeItem('kv_user');
+  currentUser = null;
+}
+
+function checkSessionExpiry() {
+  let expiresAt = parseFloat(localStorage.getItem('auth_expires_at') || '0');
+  let token = localStorage.getItem('auth_token');
+  if (token && Date.now() > expiresAt) {
+    clearAuthSession();
+    showToast("Session expired. Please sign in again.");
+    openAuthModal();
+    showPage('page-storefront', false);
+    return true;
+  }
+  return false;
+}
+
+function showToast(message) {
+  const toast = document.createElement('div');
+  toast.className = 'fixed bottom-4 right-4 z-50 bg-[#121215] border border-white/10 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom duration-300';
+  toast.innerHTML = `
+    <span style="width:6px;height:6px;border-radius:50%;background:var(--red)"></span>
+    <span style="font-size:12px;font-weight:600">${message}</span>
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
 
 let userDeliveryLocation = localStorage.getItem('kv_delivery_location') || 'India (Standard Courier)';
 
@@ -112,14 +183,165 @@ document.addEventListener('DOMContentLoaded', () => {
   renderProductGrid();
   startHUDPoller();
   startFailurePoller();
+  
+  // Check if redirected back from Razorpay checkout link
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('status') === 'success') {
+    const orderId = urlParams.get('order_id');
+    const paymentId = urlParams.get('payment_id');
+    const signature = urlParams.get('signature');
+    const amount = urlParams.get('amount');
+    const productId = urlParams.get('product_id');
+    showPaymentSuccessScreen({
+      orderId,
+      paymentId,
+      amount,
+      productId,
+      hmac: signature
+    });
+    window.history.replaceState({}, document.title, "/");
+  } else if (urlParams.get('status') === 'failed') {
+    alert("⚠️ Payment failed or was cancelled by user. Please try again.");
+    window.history.replaceState({}, document.title, "/");
+  }
+
   showPage('page-storefront');
 });
 
 // ============================================================
-//  AUTHENTICATION & RBAC (USER VS. ADMIN)
+//  AUTHENTICATION, REGISTER, LOGIN, GOOGLE SIGN-IN
 // ============================================================
+window.toggleAuthMode = function(mode) {
+  const loginForm = document.getElementById('form-email-login');
+  const signupForm = document.getElementById('form-email-signup');
+  const loginTab = document.getElementById('tab-auth-login');
+  const signupTab = document.getElementById('tab-auth-signup');
+  const feedback = document.getElementById('auth-feedback-box');
+  
+  if (feedback) feedback.style.display = 'none';
+
+  if (mode === 'login') {
+    if (loginForm) loginForm.style.display = 'block';
+    if (signupForm) signupForm.style.display = 'none';
+    if (loginTab) { loginTab.style.background = 'var(--surface-2)'; loginTab.style.color = '#fff'; }
+    if (signupTab) { signupTab.style.background = 'transparent'; signupTab.style.color = 'var(--text-secondary)'; }
+  } else {
+    if (loginForm) loginForm.style.display = 'none';
+    if (signupForm) signupForm.style.display = 'block';
+    if (loginTab) { loginTab.style.background = 'transparent'; loginTab.style.color = 'var(--text-secondary)'; }
+    if (signupTab) { signupTab.style.background = 'var(--surface-2)'; signupTab.style.color = '#fff'; }
+  }
+};
+
+window.handleEmailSignup = async function(e) {
+  e.preventDefault();
+  const name = document.getElementById('signup-name')?.value.trim();
+  const email = document.getElementById('signup-email')?.value.trim();
+  const password = document.getElementById('signup-password')?.value;
+  const role = document.getElementById('signup-role')?.value || 'user';
+
+  if (!name || !email || !password) return;
+  if (password.length < 6) {
+    showAuthFeedback('error', 'Password must be at least 6 characters long.');
+    return;
+  }
+
+  showAuthFeedback('info', 'Registering account and generating verification link...');
+
+  try {
+    const resp = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password, role })
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      showAuthFeedback('success', `Verification email sent! Click <a href="${data.verification_url}" target="_blank" style="text-decoration:underline;color:var(--emerald);font-weight:bold">verify</a> to activate your account.`);
+      document.getElementById('form-email-signup').reset();
+    } else {
+      showAuthFeedback('error', data.detail || 'Registration failed.');
+    }
+  } catch (err) {
+    showAuthFeedback('error', `Network error: ${err.message}`);
+  }
+};
+
+window.handleEmailLogin = async function(e) {
+  e.preventDefault();
+  const email = document.getElementById('login-email')?.value.trim();
+  const password = document.getElementById('login-password')?.value;
+  
+  if (!email || !password) return;
+
+  showAuthFeedback('info', 'Signing in...');
+
+  try {
+    const resp = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      currentUser = data.user;
+      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('auth_user', JSON.stringify(data.user));
+      localStorage.setItem('auth_expires_at', data.expires_at.toString());
+      updateAuthUI();
+      closeAuthModal();
+      logTerminal('ok', `[AUTH] Signed in with email as: ${currentUser.name} (${currentUser.role.toUpperCase()})`);
+    } else {
+      showAuthFeedback('error', data.detail || 'Login failed.');
+    }
+  } catch (err) {
+    showAuthFeedback('error', `Network error: ${err.message}`);
+  }
+};
+
+// Google GIS callback
+window.handleGoogleLoginResponse = function(response) {
+  if (!response || !response.credential) return;
+  const roleSelect = document.getElementById('auth-role-select')?.value || 'user';
+  loginAs(roleSelect, null, null, response.credential);
+};
+
+function showAuthFeedback(type, msg) {
+  const box = document.getElementById('auth-feedback-box');
+  if (!box) return;
+  box.style.display = 'block';
+  box.textContent = msg;
+  if (type === 'error') {
+    box.style.background = 'rgba(239,68,68,0.1)';
+    box.style.color = 'var(--red)';
+    box.style.border = '1px solid rgba(239,68,68,0.3)';
+  } else if (type === 'success') {
+    box.style.background = 'rgba(16,185,129,0.1)';
+    box.style.color = 'var(--emerald)';
+    box.style.border = '1px solid rgba(16,185,129,0.3)';
+  } else {
+    box.style.background = 'rgba(99,102,241,0.1)';
+    box.style.color = 'var(--indigo-bright)';
+    box.style.border = '1px solid rgba(99,102,241,0.2)';
+  }
+}
+
 function initAuth() {
-  updateAuthUI();
+  const storedUser = localStorage.getItem('auth_user');
+  const storedToken = localStorage.getItem('auth_token');
+  const storedExpires = localStorage.getItem('auth_expires_at');
+  
+  if (storedUser && storedToken && storedExpires) {
+    currentUser = JSON.parse(storedUser);
+    if (Date.now() > parseFloat(storedExpires)) {
+      clearAuthSession();
+      setTimeout(openAuthModal, 100);
+    } else {
+      updateAuthUI();
+    }
+  } else {
+    clearAuthSession();
+    setTimeout(openAuthModal, 100);
+  }
 
   document.getElementById('user-profile-pill')?.addEventListener('click', openAuthModal);
   document.getElementById('btn-auth-trigger')?.addEventListener('click', openAuthModal);
@@ -132,49 +354,56 @@ function initAuth() {
   document.getElementById('btn-login-admin')?.addEventListener('click', () => {
     loginAs('admin', 'Merchant Administrator', 'admin@kicksvault.in');
   });
-
-  document.getElementById('btn-google-signin')?.addEventListener('click', () => {
-    loginAs('user', 'Google User (Collector)', 'google.user@kicksvault.in');
-  });
 }
 
 function openAuthModal() {
   const modal = document.getElementById('auth-modal');
   if (modal) modal.style.display = 'flex';
+  const feedback = document.getElementById('auth-feedback-box');
+  if (feedback) feedback.style.display = 'none';
 }
 
 function closeAuthModal() {
+  if (!localStorage.getItem('auth_token')) {
+    showAuthFeedback('error', 'Please authenticate to access KicksVault.');
+    return;
+  }
   const modal = document.getElementById('auth-modal');
   if (modal) modal.style.display = 'none';
 }
 
-async function loginAs(role, name, email) {
+async function loginAs(role, name = null, email = null, credential = null) {
   try {
     const resp = await fetch('/api/auth/demo-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role, name, email })
+      body: JSON.stringify({ role })
     });
     if (resp.ok) {
-      const user = await resp.json();
-      currentUser = user;
-      localStorage.setItem('kv_user', JSON.stringify(currentUser));
+      const data = await resp.json();
+      currentUser = data.user;
+      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('auth_user', JSON.stringify(data.user));
+      localStorage.setItem('auth_expires_at', data.expires_at.toString());
       updateAuthUI();
       closeAuthModal();
-      logTerminal('ok', `[AUTH] Signed in as: ${user.name} (${user.role.toUpperCase()})`);
+      logTerminal('ok', `[AUTH] Signed in via Demo/Google as: ${currentUser.name} (${currentUser.role.toUpperCase()})`);
+    } else {
+      throw new Error("Demo login endpoint returned failure status");
     }
   } catch (err) {
     currentUser = {
       user_id: `usr_${role}`,
       role: role,
-      name: name,
-      email: email,
+      name: name || (role === 'admin' ? "Merchant Administrator" : "Verified Collector"),
+      email: email || (role === 'admin' ? "admin@kicksvault.in" : "collector@kicksvault.in"),
       avatar: role === 'admin' 
         ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'
-        : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-      token: 'local_token'
+        : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'
     };
-    localStorage.setItem('kv_user', JSON.stringify(currentUser));
+    localStorage.setItem('auth_token', `mock_tok_${role}`);
+    localStorage.setItem('auth_user', JSON.stringify(currentUser));
+    localStorage.setItem('auth_expires_at', (Date.now() + 3600 * 1000).toString());
     updateAuthUI();
     closeAuthModal();
   }
@@ -184,42 +413,83 @@ function updateAuthUI() {
   const nameEl = document.getElementById('user-display-name');
   const roleBadge = document.getElementById('user-role-badge');
   const avatarEl = document.getElementById('user-avatar');
-  const tabMerchant = document.getElementById('tab-merchant');
-  const merchantLock = document.getElementById('tab-merchant-lock');
+  const tabAdmin = document.getElementById('tab-admin');
+  const tabChat = document.getElementById('tab-chat');
+  const btnToggleStorefront = document.getElementById('btn-toggle-storefront');
 
-  if (nameEl) nameEl.textContent = currentUser.name.split(' ')[0];
-  if (avatarEl) avatarEl.src = currentUser.avatar;
-
-  const isAdmin = currentUser.role === 'admin';
-
-  if (roleBadge) {
-    roleBadge.textContent = isAdmin ? 'ADMIN' : 'COLLECTOR';
-    roleBadge.className = isAdmin ? 'role-badge-admin' : 'role-badge-user';
-  }
-
-  // Strict Navigation Separation
-  if (tabMerchant) {
-    tabMerchant.style.display = isAdmin ? 'inline-flex' : 'none';
-  }
-  if (merchantLock) {
-    merchantLock.style.display = 'none';
-  }
-
-  // Toggle Admin-only controls throughout the UI
-  document.querySelectorAll('.admin-only-ui').forEach(el => {
-    // Use block for div containers, flex only for flex-intended elements
-    const tag = el.tagName.toLowerCase();
-    const defaultDisplay = (tag === 'button' || tag === 'span' || tag === 'a') ? 'flex' : 'block';
-    el.style.display = isAdmin ? defaultDisplay : 'none';
-  });
-
-  // If regular user was on merchant page, switch to storefront
-  if (!isAdmin) {
-    const activePage = document.querySelector('.page.active');
-    if (activePage && activePage.id === 'page-merchant') {
-      showPage('page-storefront');
+  if (currentUser) {
+    if (nameEl) nameEl.textContent = currentUser.name.split(' ')[0];
+    if (avatarEl) avatarEl.src = currentUser.avatar;
+    
+    const isAdmin = currentUser.role === 'admin';
+    if (roleBadge) {
+      if (isAdmin) {
+        roleBadge.textContent = '🛡️ MERCHANT ADMIN';
+        roleBadge.className = 'role-badge-admin';
+        roleBadge.style.background = 'rgba(251,191,36,0.15)';
+        roleBadge.style.color = 'var(--amber)';
+        roleBadge.style.border = '1px solid rgba(251,191,36,0.3)';
+        if (btnToggleStorefront) btnToggleStorefront.style.display = 'inline-flex';
+      } else {
+        roleBadge.textContent = '👤 CUSTOMER';
+        roleBadge.className = 'role-badge-user';
+        roleBadge.style.background = 'rgba(34,211,238,0.15)';
+        roleBadge.style.color = 'var(--cyan)';
+        roleBadge.style.border = '1px solid rgba(34,211,238,0.3)';
+        if (btnToggleStorefront) btnToggleStorefront.style.display = 'none';
+      }
     }
+
+    if (tabAdmin) tabAdmin.style.display = isAdmin ? 'inline-flex' : 'none';
+    if (tabChat) tabChat.style.display = isAdmin ? 'none' : 'inline-flex';
+    
+    // Toggle Admin-only controls throughout the UI
+    document.querySelectorAll('.admin-only-ui').forEach(el => {
+      const tag = el.tagName.toLowerCase();
+      const defaultDisplay = (tag === 'button' || tag === 'span' || tag === 'a') ? 'flex' : 'block';
+      el.style.display = isAdmin ? defaultDisplay : 'none';
+    });
+
+    if (isAdmin) {
+      loadAdminBrands();
+    }
+
+    // Strict Navigation Separation check
+    const activePage = document.querySelector('.page.active');
+    if (activePage) {
+      if (!isAdmin && activePage.id === 'page-admin') {
+        showPage('page-storefront');
+      } else if (isAdmin && activePage.id === 'page-chat') {
+        showPage('page-admin');
+      }
+    }
+  } else {
+    if (nameEl) nameEl.textContent = 'Guest';
+    if (roleBadge) {
+      roleBadge.textContent = 'GUEST';
+      roleBadge.className = 'role-badge-user';
+    }
+    if (tabAdmin) tabAdmin.style.display = 'none';
+    if (tabChat) tabChat.style.display = 'inline-flex';
+    if (btnToggleStorefront) btnToggleStorefront.style.display = 'none';
   }
+}
+
+async function loadAdminBrands() {
+  const container = document.getElementById('brand-showcase-container');
+  if (!container) return;
+  try {
+    const resp = await fetch('/api/admin/brands');
+    if (resp.ok) {
+      const brands = await resp.json();
+      container.innerHTML = brands.map(b => `
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;min-width:90px;text-align:center;box-shadow:var(--shadow-sm)">
+          <img src="${b.logo}" alt="${b.name}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,0.1)"/>
+          <span style="font-size:10px;font-weight:700;color:var(--text-secondary)">${b.name}</span>
+        </div>
+      `).join('');
+    }
+  } catch (_) {}
 }
 
 // ============================================================
@@ -325,12 +595,11 @@ async function handleAddNewProduct(e) {
   e.preventDefault();
   const id = document.getElementById('new-prod-id')?.value.trim();
   const name = document.getElementById('new-prod-name')?.value.trim();
+  const brand = document.getElementById('new-prod-brand')?.value || 'Jordan';
   const retail = parseFloat(document.getElementById('new-prod-retail')?.value);
   const floor = parseFloat(document.getElementById('new-prod-floor')?.value);
   const stock = parseInt(document.getElementById('new-prod-stock')?.value, 10) || 1;
-  const badge = document.getElementById('new-prod-badge')?.value.trim() || 'Vault Drop';
   const image = document.getElementById('new-prod-image')?.value.trim() || 'https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=800&q=80';
-  const desc = document.getElementById('new-prod-desc')?.value.trim();
 
   if (!id || !name || isNaN(retail) || isNaN(floor)) {
     alert('Please fill in all required product fields with valid values.');
@@ -338,18 +607,17 @@ async function handleAddNewProduct(e) {
   }
 
   try {
-    const resp = await fetch('/api/products', {
+    const resp = await fetch('/api/admin/products', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id,
         name,
-        description: desc,
         retail_price: retail,
         floor_price: floor,
         stock,
-        badge,
-        image
+        image_url: image,
+        brand
       })
     });
 
@@ -359,8 +627,9 @@ async function handleAddNewProduct(e) {
         price: retail,
         floor,
         stock,
-        badges: [[badge, 'red']],
-        desc,
+        brand,
+        badges: [['New Drop', 'indigo']],
+        desc: `Luxury ${brand} sneakers.`,
         image
       };
 
@@ -461,6 +730,10 @@ async function renderProductGrid() {
 }
 
 function startNegotiationForProduct(productId, productName) {
+  if (currentUser.role === 'admin') {
+    alert("🔒 Merchant Administrators cannot negotiate or chat. Please switch your role to 'Verified Collector' (Buyer View) via the top-right profile pill to negotiate.");
+    return;
+  }
   showPage('page-chat');
   const input = document.getElementById('chat-input');
   if (input) {
@@ -626,22 +899,63 @@ function initNav() {
   });
 }
 
-function showPage(pageId) {
-  if (pageId === 'page-merchant' && currentUser.role !== 'admin') {
-    const confirmSwitch = confirm("🛡️ Merchant HUD is an Admin-only view.\n\nWould you like to switch to Merchant Administrator mode to inspect live telemetry, stock controls, and payment simulators?");
-    if (confirmSwitch) {
-      loginAs('admin', 'Merchant Administrator', 'admin@kicksvault.in');
-    } else {
-      return;
-    }
+function showPage(pageId, recordHistory = true) {
+  if (pageId === 'page-admin' && (!currentUser || currentUser.role !== 'admin')) {
+    alert("🛡️ Admin Panel is restricted to Merchant Administrators.");
+    showPage('page-storefront', false);
+    return;
+  }
+
+  if (pageId === 'page-chat' && currentUser.role === 'admin') {
+    alert("🔒 Merchant Administrators cannot access the AI Concierge chat view. Please switch to Buyer View (Verified Collector) mode first.");
+    return;
+  }
+
+  if (recordHistory && pageHistory[pageHistory.length - 1] !== pageId) {
+    pageHistory.push(pageId);
   }
 
   document.querySelectorAll('.page').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(pageId)?.classList.add('active');
-  document.querySelector(`[data-target="${pageId}"]`)?.classList.add('active');
+  
+  const target = document.getElementById(pageId);
+  if (target) target.classList.add('active');
+
+  const tab = document.querySelector(`[data-target="${pageId}"]`);
+  if (tab) tab.classList.add('active');
+
+  updateBreadcrumbs(pageId);
+
   setTimeout(() => lucide.createIcons(), 60);
 }
+
+window.goBack = function() {
+  if (pageHistory.length > 1) {
+    pageHistory.pop(); // remove current page
+    const prevPage = pageHistory[pageHistory.length - 1];
+    showPage(prevPage, false);
+  } else {
+    showPage('page-storefront', false);
+  }
+};
+
+function updateBreadcrumbs(pageId) {
+  const currentTitle = PAGE_TITLES[pageId] || 'Current View';
+  const breadcrumbElements = document.querySelectorAll('.current-view-breadcrumb');
+  breadcrumbElements.forEach(el => {
+    el.textContent = `Storefront › ${currentTitle}`;
+  });
+}
+
+window.closePaymentModal = function() {
+  const modal = document.getElementById('payment-success-modal');
+  if (modal) modal.classList.add('hidden');
+};
+
+window.closePaymentModalAndGoHome = function() {
+  closePaymentModal();
+  showPage('page-storefront');
+};
 
 function seedAndNavigate(prodId, prodName) {
   showPage('page-chat');
@@ -868,6 +1182,15 @@ async function runCustomerSim(type) {
           : `✗ FAILED — bank_transaction_timeout | ${orderId}`;
       }
       await pollOrders();
+      if (type === 'success') {
+        showPaymentSuccessScreen({
+          orderId: orderId,
+          paymentId: `pay_${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 10)}`,
+          amount: amount,
+          productId: productId,
+          hmac: data.verified_hmac
+        });
+      }
     } else {
       if (fb) { fb.style.color = '#fca5a5'; fb.textContent = `⚠ Error: ${data.detail || 'Unknown error'}`; }
     }
@@ -946,36 +1269,69 @@ function initPhoneCollectModal() {
     if (currentCheckout) openPhoneCollectModal(currentCheckout);
   });
 
-  // Back-to-app button on success screen
-  document.getElementById('btn-back-to-app')?.addEventListener('click', () => {
-    document.getElementById('payment-success-screen').style.display = 'none';
-    showPage('page-chat');
-    pollOrders();
-  });
 }
 
 // ============================================================
-//  SHOW PAYMENT SUCCESS SCREEN (full-page)
+//  SHOW PAYMENT SUCCESS MODAL (centered)
 // ============================================================
 function showPaymentSuccessScreen({ orderId, paymentId, amount, productId, hmac }) {
-  const screen = document.getElementById('payment-success-screen');
-  if (!screen) return;
+  const modal = document.getElementById('payment-success-modal');
+  if (!modal) return;
 
   const prod = PRODUCTS[productId] || {};
-  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  const setImg = (id, src) => { const el = document.getElementById(id); if (el) el.src = src; };
 
-  setImg('success-product-img', prod.image || '');
-  setEl('success-product-name', prod.name || productId);
-  setEl('success-amount', `₹${Number(amount).toLocaleString('en-IN')}`);
-  setEl('success-order-id', orderId);
-  setEl('success-payment-id', paymentId || '—');
-  setEl('success-delivery', userDeliveryLocation || 'India');
-  setEl('success-hmac', hmac ? hmac.slice(0, 48) + '…' : '—');
+  const receiptContent = document.getElementById('receipt-modal-content');
+  if (receiptContent) {
+    receiptContent.innerHTML = `
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:12px">ORDER RECEIPT</div>
 
-  screen.style.display = 'block';
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,0.08)">
+        <img id="success-product-img" src="${prod.image || ''}" alt="Product" style="width:50px;height:50px;border-radius:8px;object-fit:cover;border:1px solid rgba(255,255,255,0.1);flex-shrink:0"/>
+        <div style="min-width:0;flex-grow:1">
+          <div id="success-product-name" style="font-size:13px;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${prod.name || productId}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">KicksVault Certified · NFC Authenticated</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:9px;color:var(--text-muted)">PAID</div>
+          <div id="success-amount" style="font-size:16px;font-weight:900;color:var(--emerald)">₹${Number(amount).toLocaleString('en-IN')}</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:11px">
+        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:8px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:4px">ORDER ID</div>
+          <div id="success-order-id" style="font-size:10px;font-family:var(--font-mono);color:var(--indigo-bright);word-break:break-all">${orderId}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:8px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:4px">PAYMENT ID</div>
+          <div id="success-payment-id" style="font-size:10px;font-family:var(--font-mono);color:var(--indigo-bright);word-break:break-all">${paymentId || '—'}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:8px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:4px">STATUS</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--emerald)"></span>
+            <span style="font-size:10px;font-weight:800;color:var(--emerald)">PAID · VERIFIED</span>
+          </div>
+        </div>
+        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:8px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:4px">DELIVERY TO</div>
+          <div id="success-delivery" style="font-size:10px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${userDeliveryLocation || 'India'}</div>
+        </div>
+      </div>
+
+      <!-- HMAC verification chip -->
+      <div style="margin-top:10px;padding:8px 12px;background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.15);border-radius:8px;display:flex;align-items:center;gap:6px">
+        <i data-lucide="shield-check" style="width:13px;height:13px;color:var(--emerald);flex-shrink:0"></i>
+        <div style="min-width:0;flex-grow:1">
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--emerald);font-family:var(--font-mono)">HMAC-SHA256 SIGNATURE VERIFIED</div>
+          <div id="success-hmac" style="font-size:9px;font-family:var(--font-mono);color:var(--text-muted);margin-top:2px;word-break:break-all">${hmac ? hmac.slice(0, 48) + '…' : '—'}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  modal.classList.remove('hidden');
   lucide.createIcons();
-  window.scrollTo(0, 0);
 }
 
 async function launchOfficialRazorpayCheckout(checkoutData) {
@@ -996,8 +1352,9 @@ async function launchOfficialRazorpayCheckout(checkoutData) {
         amount: Number(checkoutData.amount),
         product_id: checkoutData.product_id,
         session_id: sessionId,
-        customer_name: currentUser.name,
-        customer_email: currentUser.email,
+        customer_name: checkoutData._name || currentUser.name,
+        customer_email: checkoutData._email || currentUser.email,
+        phone: checkoutData._phone || "+919876543210",
         delivery_location: userDeliveryLocation
       })
     });
@@ -1010,92 +1367,13 @@ async function launchOfficialRazorpayCheckout(checkoutData) {
       lucide.createIcons();
     }
 
-    if (window.Razorpay && order.key_id) {
-      logTerminal('info', `[RAZORPAY STANDARD ORDER] Initializing Checkout JS: ${order.order_id} (₹${order.amount})`);
-
-      const options = {
-        key: order.key_id,
-        amount: order.amount_paise,
-        currency: "INR",
-        name: "KicksVault India",
-        description: `Purchase of ${order.product_name} — Agentic Commerce`,
-        image: "https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=200&q=80",
-        order_id: (order.order_id && order.order_id.startsWith('order_') && !order.order_id.startsWith('order_local_')) ? order.order_id : undefined,
-        prefill: {
-          name: checkoutData._name  || currentUser.name  || "Verified Collector",
-          email: checkoutData._email || currentUser.email || "collector@kicksvault.in",
-          contact: checkoutData._phone || "9876543210"
-        },
-        notes: {
-          product_id: order.product_id,
-          delivery_destination: userDeliveryLocation,
-          session_id: sessionId
-        },
-        theme: {
-          color: "#10b981"
-        },
-        handler: async function (response) {
-          logTerminal('ok', `[RAZORPAY TESTNET] Standard Payment Success: ${response.razorpay_payment_id}`);
-
-          try {
-            const verifyResp = await fetch('/api/razorpay/verify-payment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id || order.order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature || '',
-                product_id: order.product_id,
-                amount: order.amount
-              })
-            });
-
-            const vData = await verifyResp.json();
-            logTerminal('ok', `[WEBHOOK RECEIVED] POST /api/webhook/razorpay · 200 OK`);
-            logTerminal('ok', `[EVENT] payment.captured · ID: ${response.razorpay_payment_id}`);
-            logTerminal('ok', `[HMAC-SHA256] ${vData.signature}`);
-            logTerminal('ok', `[SIGNATURE CHECK] ✓ 100% CRYPTOGRAPHIC MATCH`);
-            logTerminal('ok', `[LEDGER UPDATED] ${order.order_id} → STATUS: PAID`);
-            logTerminal('dim', `─────────────────────────────────────`);
-
-            renderPaymentSuccessCard(order.order_id, order.amount, order.product_id, vData.signature);
-            appendAgent(`🎉 **Real Razorpay Test Payment Confirmed!** Payment ID \`${response.razorpay_payment_id}\` verified. Order \`${order.order_id}\` is marked as PAID and deadstock physical authentication tag is registered for dispatch to 📍 **${userDeliveryLocation}**.`);
-            await pollOrders();
-
-            // Show full-page success screen
-            showPaymentSuccessScreen({
-              orderId:   order.order_id,
-              paymentId: response.razorpay_payment_id,
-              amount:    order.amount,
-              productId: order.product_id,
-              hmac:      vData.signature
-            });
-          } catch (e) {
-            logTerminal('warn', `Payment verification notice: ${e.message}`);
-          }
-        },
-        modal: {
-          ondismiss: function() {
-            logTerminal('warn', `[RAZORPAY TESTNET] Checkout modal dismissed by user.`);
-          }
-        }
-      };
-
-      try {
-        const rzp = new Razorpay(options);
-        rzp.on('payment.failed', function (response) {
-          logTerminal('fail', `[RAZORPAY FAILED] Code: ${response.error.code} - ${response.error.description}`);
-          appendSystem(`⚠️ Payment Failed: ${response.error.description}`);
-        });
-        rzp.open();
-        return;
-      } catch (err) {
-        console.warn('Razorpay Checkout popup error, falling back to gateway modal:', err);
-      }
+    if (order.payment_link_url) {
+      logTerminal('info', `[REDIRECT] Redirecting user to Razorpay Hosted Checkout: ${order.payment_link_url}`);
+      window.location.href = order.payment_link_url;
+      return;
     }
 
-    // Fallback to interactive Sandbox Modal
-    openRazorpaySandboxModal(checkoutData);
+    alert("⚠️ Could not generate Razorpay payment link. Please try again.");
 
   } catch (err) {
     if (btn) {
@@ -1103,7 +1381,7 @@ async function launchOfficialRazorpayCheckout(checkoutData) {
       btn.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Pay via Razorpay Sandbox →`;
       lucide.createIcons();
     }
-    openRazorpaySandboxModal(checkoutData);
+    alert(`⚠️ Error launching checkout: ${err.message}`);
   }
 }
 
@@ -1627,6 +1905,15 @@ async function simulateDirect(type) {
       logMini(`[WEBHOOK] ${type === 'success' ? 'PAID' : 'FAILED'} — HMAC verified`);
       logTerminal(type === 'success' ? 'ok' : 'fail', `[CHAT SIM] ${type.toUpperCase()} — ${data.verified_hmac?.slice(0,24)}…`);
       await pollOrders();
+      if (type === 'success') {
+        showPaymentSuccessScreen({
+          orderId: currentCheckout.order_id,
+          paymentId: `pay_${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 10)}`,
+          amount: currentCheckout.amount,
+          productId: currentCheckout.product_id,
+          hmac: data.verified_hmac
+        });
+      }
     } else {
       appendSystem(`⚠ Simulation error: ${data.detail}`);
     }

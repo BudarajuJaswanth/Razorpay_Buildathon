@@ -20,63 +20,109 @@
 <!-- ============================================================
      AUTHENTICATION MODAL / RBAC ROLE SELECTOR
      ============================================================ -->
+<!-- ============================================================
+     AUTHENTICATION MODAL / REGISTER / LOGIN / GOOGLE AUTH
+     ============================================================ -->
 <div id="auth-modal" class="auth-overlay" style="display:none">
-  <div class="auth-card">
+  <div class="auth-card" style="max-width:440px;">
+    <!-- Icon -->
     <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--indigo),var(--indigo-dim));display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:var(--shadow-indigo)">
       <i data-lucide="shield-check" style="width:24px;height:24px;color:#fff"></i>
     </div>
-    <h2 style="font-size:20px;font-weight:800;letter-spacing:-0.02em;margin-bottom:6px">Access KicksVault India</h2>
-    <p style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-bottom:24px">Sign in with your Google account or select a 1-click sandbox role to test autonomous commerce.</p>
+    
+    <h2 style="font-size:20px;font-weight:800;letter-spacing:-0.02em;margin-bottom:6px">KICKSVAULT ACCESS PORTAL</h2>
+    <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:16px">Authenticate with Google or standard email credentials to begin autonomous negotiation.</p>
 
-    <!-- Google Login Button Mock/Container -->
-    <div style="margin-bottom:20px">
-      <button id="btn-google-signin" class="google-btn">
-        <svg width="18" height="18" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-        </svg>
-        Continue with Google (One-Tap)
+    <!-- Google One-Tap/GIS Container -->
+    <div style="margin-bottom:16px;display:flex;flex-direction:column;align-items:center;">
+      <div id="g_id_onload"
+           data-client_id="1098656365851-g219198642198.apps.googleusercontent.com"
+           data-callback="handleGoogleLoginResponse"
+           data-auto_prompt="false">
+      </div>
+      <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="dark" data-text="signin_with" data-size="large" data-logo_alignment="left"></div>
+    </div>
+
+    <!-- Role select for Google/Demo login -->
+    <div style="margin-bottom:16px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:11px;color:var(--text-secondary);font-weight:700">GOOGLE & DEMO ROLE:</span>
+      <select id="auth-role-select" style="background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:11px;padding:4px 8px;border-radius:6px;outline:none;cursor:pointer">
+        <option value="user">Verified Collector (User)</option>
+        <option value="admin">Merchant Administrator (Admin)</option>
+      </select>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <span style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono)">OR EMAIL AUTHENTICATION</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+
+    <!-- Auth Mode Switcher Tabs -->
+    <div style="display:flex;gap:4px;background:rgba(255,255,255,0.02);padding:3px;border-radius:8px;margin-bottom:16px">
+      <button id="tab-auth-login" onclick="toggleAuthMode('login')" style="flex:1;padding:8px;border-radius:6px;border:none;font-size:11px;font-weight:700;cursor:pointer;background:var(--surface-2);color:#fff">Sign In</button>
+      <button id="tab-auth-signup" onclick="toggleAuthMode('signup')" style="flex:1;padding:8px;border-radius:6px;border:none;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:var(--text-secondary)">Create Account</button>
+    </div>
+
+    <!-- Feedback Message Box -->
+    <div id="auth-feedback-box" style="display:none;padding:10px 12px;border-radius:8px;font-size:11px;margin-bottom:14px;text-align:left;line-height:1.4"></div>
+
+    <!-- Login Form -->
+    <form id="form-email-login" onsubmit="handleEmailLogin(event)" style="display:block;text-align:left">
+      <div style="margin-bottom:12px">
+        <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px">EMAIL</label>
+        <input type="email" id="login-email" required placeholder="collector@kicksvault.in" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:#fff;outline:none"/>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px">PASSWORD</label>
+        <input type="password" id="login-password" required placeholder="••••••••" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:#fff;outline:none"/>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;font-size:12px">Sign In with Email</button>
+    </form>
+
+    <!-- Sign Up Form -->
+    <form id="form-email-signup" onsubmit="handleEmailSignup(event)" style="display:none;text-align:left">
+      <div style="margin-bottom:10px">
+        <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px">FULL NAME</label>
+        <input type="text" id="signup-name" required placeholder="Arjun Sharma" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:#fff;outline:none"/>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px">EMAIL</label>
+        <input type="email" id="signup-email" required placeholder="arjun@example.com" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:#fff;outline:none"/>
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px">PASSWORD</label>
+        <input type="password" id="signup-password" required placeholder="Minimum 6 characters" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:#fff;outline:none"/>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px">ACCOUNT ROLE</label>
+        <select id="signup-role" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:#fff;outline:none;cursor:pointer">
+          <option value="user">Verified Collector (Buyer View)</option>
+          <option value="admin">Merchant Administrator (Seller HUD)</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;font-size:12px">Register Account</button>
+    </form>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-top:16px;margin-bottom:12px">
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <span style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono)">1-CLICK DEMO ACCOUNTS</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+
+    <!-- Quick role select demo logins -->
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button id="btn-login-customer" class="btn btn-ghost" style="flex:1;font-size:10px;padding:8px;justify-content:center">
+        <i data-lucide="user" style="width:12px;height:12px;color:var(--cyan)"></i> 👤 Quick Demo Customer
+      </button>
+      <button id="btn-login-admin" class="btn btn-ghost" style="flex:1;font-size:10px;padding:8px;justify-content:center">
+        <i data-lucide="shield" style="width:12px;height:12px;color:var(--amber)"></i> 🛡️ Quick Demo Admin
       </button>
     </div>
-
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
-      <div style="flex:1;height:1px;background:var(--border)"></div>
-      <span style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">OR 1-CLICK DEMO LOGIN</span>
-      <div style="flex:1;height:1px;background:var(--border)"></div>
-    </div>
-
-    <!-- 1-Click Role Logins -->
-    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
-      <div class="auth-role-card" id="btn-login-customer">
-        <div style="width:36px;height:36px;border-radius:10px;background:rgba(34,211,238,0.12);color:var(--cyan);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <i data-lucide="user" style="width:18px;height:18px"></i>
-        </div>
-        <div style="flex:1">
-          <div style="font-size:13px;font-weight:700;color:var(--text-primary)">Verified Collector (Customer)</div>
-          <div style="font-size:11px;color:var(--text-secondary)">Access Storefront, AI Concierge, and Live Checkout</div>
-        </div>
-        <span class="role-badge-user">USER</span>
-      </div>
-
-      <div class="auth-role-card" id="btn-login-admin">
-        <div style="width:36px;height:36px;border-radius:10px;background:rgba(251,191,36,0.12);color:var(--amber);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <i data-lucide="shield" style="width:18px;height:18px"></i>
-        </div>
-        <div style="flex:1">
-          <div style="font-size:13px;font-weight:700;color:var(--text-primary)">Merchant Admin</div>
-          <div style="font-size:11px;color:var(--text-secondary)">Unlock Merchant HUD, Stock Controller & Simulation Deck</div>
-        </div>
-        <span class="role-badge-admin">ADMIN</span>
-      </div>
-    </div>
-
-    <button id="btn-close-auth" class="btn-ghost" style="width:100%;justify-content:center;font-size:11px">
-      Continue as Guest
-    </button>
   </div>
 </div>
+
+
 
 <!-- ============================================================
      FLOATING GLOBAL NAVIGATION
@@ -101,34 +147,38 @@
   <div class="nav-tabs">
     <button class="nav-btn active" data-target="page-storefront" id="tab-storefront">
       <i data-lucide="shopping-bag" style="width:13px;height:13px"></i>
-      <span>Storefront</span>
+      <span>👟 Storefront</span>
     </button>
     <button class="nav-btn" data-target="page-chat" id="tab-chat">
       <i data-lucide="message-circle" style="width:13px;height:13px"></i>
-      <span>AI Concierge</span>
+      <span>💬 AI Concierge</span>
     </button>
     <button class="nav-btn" data-target="page-story" id="tab-story">
       <i data-lucide="book-open" style="width:13px;height:13px"></i>
-      <span>Brand Story</span>
+      <span>📖 Our Story</span>
     </button>
     <button class="nav-btn" data-target="page-roadmap" id="tab-roadmap">
       <i data-lucide="rocket" style="width:13px;height:13px"></i>
-      <span>Roadmap</span>
+      <span>🚀 Future Vision</span>
     </button>
-    <button class="nav-btn" data-target="page-merchant" id="tab-merchant">
+    <button class="nav-btn" data-target="page-admin" id="tab-admin" style="display:none">
       <i data-lucide="cpu" style="width:13px;height:13px"></i>
-      <span>Merchant HUD</span>
-      <span id="tab-merchant-lock" style="display:none;font-size:9px;color:var(--text-muted)">🔒</span>
+      <span>Admin Panel</span>
     </button>
   </div>
 
   <!-- Right: User Profile & Controls -->
   <div class="nav-right" style="display:flex;align-items:center;gap:8px">
+    <!-- Quick Storefront toggle for admin -->
+    <button id="btn-toggle-storefront" onclick="showPage('page-storefront')" class="btn btn-secondary btn-sm" style="display:none;font-size:10px;padding:4px 8px;gap:4px">
+      <i data-lucide="shopping-bag" style="width:11px;height:11px"></i> Storefront
+    </button>
+
     <!-- User Profile Pill -->
     <div id="user-profile-pill" class="user-profile-pill" style="cursor:pointer" title="Click to switch account/role">
       <img id="user-avatar" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80" alt="Avatar"/>
       <span id="user-display-name">Collector</span>
-      <span id="user-role-badge" class="role-badge-user">USER</span>
+      <span id="user-role-badge" class="role-badge-user">👤 CUSTOMER</span>
     </div>
 
     <button class="btn-ghost btn-sm" id="btn-auth-trigger" style="padding:4px 8px;font-size:11px" title="Switch Account">
@@ -188,6 +238,12 @@
      PAGE 2 — AI CONCIERGE CHAT
      ============================================================ -->
 <section id="page-chat" class="page">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+    <button onclick="showPage('page-storefront')" class="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors bg-zinc-900/60 hover:bg-zinc-800 px-3.5 py-1.5 rounded-lg border border-zinc-800">
+      <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Storefront
+    </button>
+    <span class="text-xs text-zinc-500 font-mono current-view-breadcrumb" id="current-view-breadcrumb">Storefront › AI Concierge</span>
+  </div>
   <div class="chat-layout">
 
     <!-- Main -->
@@ -419,6 +475,12 @@
      PAGE 3 — BRAND STORY
      ============================================================ -->
 <section id="page-story" class="page">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+    <button onclick="showPage('page-storefront')" class="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors bg-zinc-900/60 hover:bg-zinc-800 px-3.5 py-1.5 rounded-lg border border-zinc-800">
+      <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Storefront
+    </button>
+    <span class="text-xs text-zinc-500 font-mono current-view-breadcrumb" id="current-view-breadcrumb">Storefront › Brand Story</span>
+  </div>
   <div class="story-container">
 
     <div class="story-hero">
@@ -556,6 +618,12 @@
      PAGE 4 — ROADMAP
      ============================================================ -->
 <section id="page-roadmap" class="page">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+    <button onclick="showPage('page-storefront')" class="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors bg-zinc-900/60 hover:bg-zinc-800 px-3.5 py-1.5 rounded-lg border border-zinc-800">
+      <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Storefront
+    </button>
+    <span class="text-xs text-zinc-500 font-mono current-view-breadcrumb" id="current-view-breadcrumb">Storefront › Roadmap</span>
+  </div>
   <div class="roadmap-container">
 
     <div style="text-align:center;padding:60px 0 56px">
@@ -629,9 +697,15 @@
 
 
 <!-- ============================================================
-     PAGE 5 — MERCHANT HUD
+     PAGE 5 — MERCHANT ADMIN PANEL
      ============================================================ -->
-<section id="page-merchant" class="page">
+<section id="page-admin" class="page">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+    <button onclick="showPage('page-storefront')" class="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors bg-zinc-900/60 hover:bg-zinc-800 px-3.5 py-1.5 rounded-lg border border-zinc-800">
+      <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Storefront
+    </button>
+    <span class="text-xs text-zinc-500 font-mono current-view-breadcrumb" id="current-view-breadcrumb">Storefront › Merchant Admin</span>
+  </div>
   <div class="hud-container">
 
     <div style="margin-bottom:24px">
@@ -649,6 +723,17 @@
         <div>
           <p style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px">Guardrail Sentinel Monitor</p>
           <div id="sentinel" class="sentinel sentinel-idle">◎ &nbsp; IDLE — Awaiting Negotiation Activity</div>
+        </div>
+
+        <!-- Brand Partner Showcase -->
+        <div class="glass" style="padding:20px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px">
+            <i data-lucide="award" style="width:14px;height:14px;color:var(--indigo-bright)"></i>
+            <span style="font-size:13px;font-weight:700">Luxury Brand Partners</span>
+          </div>
+          <div id="brand-showcase-container" style="display:flex;align-items:center;justify-content:space-around;flex-wrap:wrap;gap:12px;padding:8px 0">
+            <!-- Loaded dynamically via GET /api/admin/brands -->
+          </div>
         </div>
 
         <!-- Inventory & Stock Management -->
@@ -675,6 +760,16 @@
               <div>
                 <label class="sim-label">Product Title / Sneaker Name</label>
                 <input type="text" id="new-prod-name" class="sim-input" placeholder="e.g. Off-White x Nike Air Jordan 1 'UNC'" required/>
+              </div>
+              <div>
+                <label class="sim-label">Brand</label>
+                <select id="new-prod-brand" class="sim-input" style="background:var(--surface-2);border:1px solid var(--border);color:#fff;outline:none;cursor:pointer" required>
+                  <option value="Jordan">Jordan</option>
+                  <option value="Nike">Nike</option>
+                  <option value="Yeezy">Yeezy</option>
+                  <option value="New Balance">New Balance</option>
+                  <option value="Travis Scott">Travis Scott</option>
+                </select>
               </div>
               <div>
                 <label class="sim-label">Retail Value (₹ INR)</label>
@@ -907,76 +1002,36 @@
 </div>
 
 <!-- ============================================================
-     PAYMENT SUCCESS SCREEN (full-page overlay)
+     PAYMENT SUCCESS MODAL (centered overlay)
      ============================================================ -->
-<div id="payment-success-screen" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--surface-1);overflow-y:auto">
-  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 16px">
-    <div style="max-width:520px;width:100%;text-align:center">
-
-      <!-- Animated checkmark -->
-      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,rgba(16,185,129,0.2),rgba(16,185,129,0.05));border:2px solid rgba(16,185,129,0.4);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;animation:pulseGlow 2s ease-in-out infinite">
-        <i data-lucide="check-circle" style="width:36px;height:36px;color:var(--emerald)"></i>
+<div id="payment-success-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4" style="z-index: 9999;">
+  <div class="relative w-full max-w-lg bg-[#121215] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-6 animate-in fade-in zoom-in duration-200">
+    <!-- Modal Header -->
+    <div class="text-center space-y-2">
+      <div class="w-14 h-14 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+        ✓
       </div>
+      <h3 class="text-2xl font-bold text-white tracking-tight">Payment Confirmed! 🎉</h3>
+      <p class="text-sm text-zinc-400">Your transaction was cryptographically verified on Razorpay Testnet.</p>
+    </div>
 
-      <h1 style="font-size:28px;font-weight:900;letter-spacing:-0.03em;color:var(--text-primary);margin-bottom:8px">Payment Confirmed! 🎉</h1>
-      <p style="font-size:14px;color:var(--text-secondary);margin-bottom:32px;line-height:1.6">Your transaction was successfully verified on Razorpay testnet.<br>Your order is confirmed and queued for dispatch.</p>
+    <!-- Receipt Details Card -->
+    <div id="receipt-modal-content" class="bg-zinc-900/80 rounded-xl p-4 border border-zinc-800 space-y-3">
+      <!-- Dynamic Receipt details rendered via app.js -->
+    </div>
 
-      <!-- Order Details Card -->
-      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:24px;text-align:left">
-        <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:16px">ORDER RECEIPT</div>
-
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border)">
-          <img id="success-product-img" src="" alt="Product" style="width:60px;height:60px;border-radius:10px;object-fit:cover;border:1px solid rgba(255,255,255,0.1);flex-shrink:0"/>
-          <div>
-            <div id="success-product-name" style="font-size:14px;font-weight:700;color:var(--text-primary)">—</div>
-            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">KicksVault Certified · NFC Authenticated</div>
-          </div>
-          <div style="margin-left:auto;text-align:right;flex-shrink:0">
-            <div style="font-size:10px;color:var(--text-muted)">PAID</div>
-            <div id="success-amount" style="font-size:20px;font-weight:900;color:var(--emerald)">₹—</div>
-          </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:12px">
-            <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:4px">ORDER ID</div>
-            <div id="success-order-id" style="font-size:11px;font-family:var(--font-mono);color:var(--indigo-bright);word-break:break-all">—</div>
-          </div>
-          <div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:12px">
-            <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:4px">PAYMENT ID</div>
-            <div id="success-payment-id" style="font-size:11px;font-family:var(--font-mono);color:var(--indigo-bright);word-break:break-all">—</div>
-          </div>
-          <div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:12px">
-            <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:4px">STATUS</div>
-            <div style="display:flex;align-items:center;gap:5px">
-              <span style="width:7px;height:7px;border-radius:50%;background:var(--emerald)"></span>
-              <span style="font-size:11px;font-weight:800;color:var(--emerald)">PAID · VERIFIED</span>
-            </div>
-          </div>
-          <div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:12px">
-            <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:4px">DELIVERY TO</div>
-            <div id="success-delivery" style="font-size:11px;color:var(--text-secondary)">—</div>
-          </div>
-        </div>
-
-        <!-- HMAC verification chip -->
-        <div style="margin-top:14px;padding:10px 14px;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:10px;display:flex;align-items:center;gap:8px">
-          <i data-lucide="shield-check" style="width:14px;height:14px;color:var(--emerald);flex-shrink:0"></i>
-          <div>
-            <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--emerald);font-family:var(--font-mono)">HMAC-SHA256 SIGNATURE VERIFIED</div>
-            <div id="success-hmac" style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted);margin-top:2px;word-break:break-all">—</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Return button -->
-      <button id="btn-back-to-app" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 32px;border-radius:12px;border:none;cursor:pointer;font-size:13px;font-weight:800;background:linear-gradient(135deg,var(--indigo),var(--indigo-dim));color:#fff;margin:0 auto;box-shadow:var(--shadow-indigo);transition:opacity 0.2s">
-        <i data-lucide="arrow-left" style="width:15px;height:15px"></i>
-        Back to KicksVault
+    <!-- Action Buttons -->
+    <div class="flex gap-3 pt-2">
+      <button onclick="closePaymentModalAndGoHome()" class="flex-1 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Storefront
+      </button>
+      <button onclick="closePaymentModal()" class="py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium text-sm transition-all">
+        Stay in Chat
       </button>
     </div>
   </div>
 </div>
+
 
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="/static/app.js"></script>

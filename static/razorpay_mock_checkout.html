@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Razorpay Hosted Secure Gateway (Test Mode)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    :root {
+      --bg: #09090b;
+      --surface-1: #121217;
+      --surface-2: #1c1c24;
+      --border: rgba(255,255,255,0.08);
+      --text-primary: #f4f4f5;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --indigo: #6366f1;
+      --indigo-bright: #818cf8;
+      --emerald: #10b981;
+      --red: #ef4444;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text-primary);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+  </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+  <div class="w-full max-w-md bg-[#121217] border border-white/5 rounded-2xl shadow-2xl overflow-hidden">
+    <!-- Blue Header bar -->
+    <div class="bg-gradient-to-r from-[#1e3c72] to-[#2a5298] px-6 py-5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+          <i data-lucide="zap" class="w-5 h-5 text-sky-400"></i>
+        </div>
+        <div>
+          <h2 class="font-extrabold text-sm tracking-wider uppercase text-white">Razorpay Secure</h2>
+          <p class="text-xs text-sky-200 font-mono">Test Mode Checkout Gateway</p>
+        </div>
+      </div>
+      <div class="text-right">
+        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Sandbox Active
+        </span>
+      </div>
+    </div>
+
+    <!-- Main Card Body -->
+    <div class="p-6">
+      <!-- Order Summary Strip -->
+      <div class="flex items-center gap-4 bg-white/[0.02] border border-white/5 rounded-xl p-4 mb-6">
+        <div class="w-12 h-12 rounded-lg bg-zinc-900 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+          <i data-lucide="shopping-bag" class="w-6 h-6 text-zinc-400"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div id="display-product-id" class="text-[10px] font-mono text-[#818cf8] mb-0.5">PROD_001</div>
+          <div id="display-product-name" class="text-xs font-bold text-zinc-200 truncate">Luxury Sneaker Product</div>
+          <div class="text-[10px] text-zinc-500 mt-1">Order: <span id="display-order-id" class="font-mono text-zinc-400">order_123</span></div>
+        </div>
+        <div class="text-right flex-shrink-0">
+          <div class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Amount Due</div>
+          <div id="display-amount" class="text-base font-black text-emerald-400">₹0.00</div>
+        </div>
+      </div>
+
+      <!-- Payment Mode Selector -->
+      <div class="mb-6">
+        <label class="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Select Test Payment Mode</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button id="btn-tab-upi" onclick="switchTab('upi')" class="flex flex-col items-center justify-center py-3 px-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-400 font-bold transition-all text-xs gap-1.5">
+            <i data-lucide="smartphone" class="w-4 h-4"></i>
+            UPI / QR
+          </button>
+          <button id="btn-tab-card" onclick="switchTab('card')" class="flex flex-col items-center justify-center py-3 px-2 rounded-xl border border-white/5 bg-white/[0.02] text-zinc-400 font-medium transition-all text-xs gap-1.5">
+            <i data-lucide="credit-card" class="w-4 h-4"></i>
+            Card
+          </button>
+          <button id="btn-tab-net" onclick="switchTab('net')" class="flex flex-col items-center justify-center py-3 px-2 rounded-xl border border-white/5 bg-white/[0.02] text-zinc-400 font-medium transition-all text-xs gap-1.5">
+            <i data-lucide="landmark" class="w-4 h-4"></i>
+            NetBanking
+          </button>
+        </div>
+      </div>
+
+      <!-- Payment details tab contents -->
+      <div id="tab-content" class="bg-white/[0.01] border border-white/5 rounded-xl p-4 mb-6">
+        <!-- Default UPI view -->
+        <div id="view-upi" class="space-y-3">
+          <div class="text-xs text-zinc-400 leading-relaxed">
+            Scan QR code or click pay to complete transaction using simulated Razorpay UPI Sandbox.
+          </div>
+          <div class="flex items-center justify-center py-3 bg-zinc-900/50 rounded-lg border border-white/5">
+            <div class="flex flex-col items-center gap-2">
+              <i data-lucide="qr-code" class="w-24 h-24 text-zinc-400 opacity-60"></i>
+              <span class="text-[9px] font-mono text-zinc-500">razorpay.test@upi</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card view -->
+        <div id="view-card" class="hidden space-y-3">
+          <div class="bg-gradient-to-br from-zinc-900 to-black border border-white/10 rounded-xl p-4">
+            <div class="flex justify-between items-center mb-3">
+              <span class="text-[10px] font-bold text-sky-400 tracking-wider">RAZORPAY TEST CARD</span>
+              <span class="text-[10px] font-bold text-zinc-400">VISA</span>
+            </div>
+            <div class="text-sm font-mono tracking-widest text-zinc-100 mb-3">4111 2222 3333 4444</div>
+            <div class="flex justify-between text-[9px] font-mono text-zinc-500">
+              <span>EXP: 12/28</span>
+              <span>CVV: 999</span>
+            </div>
+          </div>
+          <p class="text-[10px] text-emerald-400 flex items-center gap-1">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Test payment card verified automatically.
+          </p>
+        </div>
+
+        <!-- NetBanking view -->
+        <div id="view-net" class="hidden space-y-2">
+          <div class="text-xs font-bold text-zinc-400 mb-2">Select Sandbox Bank:</div>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <button class="py-2 px-3 bg-white/[0.02] border border-emerald-500/30 text-zinc-200 rounded-lg text-left flex items-center justify-between">
+              HDFC Bank <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400"></i>
+            </button>
+            <button class="py-2 px-3 bg-white/[0.01] border border-white/5 text-zinc-400 rounded-lg text-left">ICICI Bank</button>
+            <button class="py-2 px-3 bg-white/[0.01] border border-white/5 text-zinc-400 rounded-lg text-left">State Bank of India</button>
+            <button class="py-2 px-3 bg-white/[0.01] border border-white/5 text-zinc-400 rounded-lg text-left">Axis Bank</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="space-y-2">
+        <button onclick="submitPayment('success')" class="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-500/10 hover:opacity-95 transition-opacity text-sm">
+          <i data-lucide="shield-check" class="w-5 h-5"></i>
+          Authorize & Pay Now
+        </button>
+        <button onclick="submitPayment('failure')" class="w-full py-2 bg-transparent border border-red-500/20 text-red-400 hover:bg-red-500/5 transition-colors font-medium rounded-xl text-xs flex items-center justify-center gap-1.5">
+          <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+          Simulate Payment Failure / Timeout
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Parse query params
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('order_id') || 'order_' + Math.random().toString(36).slice(2,9);
+    const productId = params.get('product_id') || 'PROD_001';
+    const productName = params.get('product_name') || 'KicksVault Deadstock Grail';
+    const amount = params.get('amount') || '24999';
+
+    document.getElementById('display-order-id').textContent = orderId;
+    document.getElementById('display-product-id').textContent = productId;
+    document.getElementById('display-product-name').textContent = productName;
+    document.getElementById('display-amount').textContent = '₹' + Number(amount).toLocaleString('en-IN');
+
+    function switchTab(mode) {
+      // Toggle tabs UI
+      ['upi', 'card', 'net'].forEach(m => {
+        const btn = document.getElementById('btn-tab-' + m);
+        const view = document.getElementById('view-' + m);
+        if (m === mode) {
+          btn.classList.add('border-emerald-500/20', 'bg-emerald-500/5', 'text-emerald-400', 'font-bold');
+          btn.classList.remove('border-white/5', 'bg-white/[0.02]', 'text-zinc-400', 'font-medium');
+          view.classList.remove('hidden');
+        } else {
+          btn.classList.remove('border-emerald-500/20', 'bg-emerald-500/5', 'text-emerald-400', 'font-bold');
+          btn.classList.add('border-white/5', 'bg-white/[0.02]', 'text-zinc-400', 'font-medium');
+          view.classList.add('hidden');
+        }
+      });
+    }
+
+    function submitPayment(status) {
+      const mockPaymentId = 'pay_' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 8);
+      const mockSignature = 'sig_' + Math.random().toString(36).slice(2, 14) + Math.random().toString(36).slice(2, 14);
+
+      // Redirect to the real app's callback url
+      const callbackUrl = `/api/razorpay/callback?razorpay_payment_id=${mockPaymentId}&razorpay_payment_link_id=${orderId}&razorpay_payment_link_status=${status === 'success' ? 'paid' : 'failed'}&razorpay_signature=${mockSignature}`;
+      window.location.href = callbackUrl;
+    }
+
+    lucide.createIcons();
+  </script>
+</body>
+</html>

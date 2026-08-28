@@ -945,3 +945,8 @@ select.sim-input option{background:#1e1e24}
   50%{box-shadow:0 0 0 16px rgba(16,185,129,0)}
 }
 
+/* ---------- Payment Success Modal ---------- */
+#payment-success-modal {
+  z-index: 9999 !important;
+}
+

@@ -24,6 +24,9 @@ PORT = int(os.getenv("PORT", 8000))
 
 from storage import create_order, update_order_status, get_order, get_all_orders
 from guardrails import CATALOG, get_catalog_summary, add_product_to_catalog, update_product_stock
+import users
+import time
+from auth import create_jwt_token, verify_jwt_token
 
 _AGENT_IMPORT_ERROR: str | None = None
 try:
@@ -455,31 +458,239 @@ async def simulate_failure(req: SimulationRequest, x_dev_token: Optional[str] = 
 
 # ----- Auth Models & RBAC Endpoints -----
 class AuthLoginRequest(BaseModel):
-    role: Optional[str] = "user"  # "user" or "admin"
+    role: Optional[str] = "user"
     name: Optional[str] = None
     email: Optional[str] = None
     avatar: Optional[str] = None
-    credential: Optional[str] = None  # Google JWT credential token if from GIS
+    credential: Optional[str] = None
 
-class UserProfile(BaseModel):
-    user_id: str
-    role: str  # "user" | "admin"
+class AuthRegisterRequest(BaseModel):
     name: str
     email: str
-    avatar: str
-    token: str
+    password: str
+    role: Optional[str] = "user"
 
-def check_admin_access(x_dev_token: Optional[str], x_user_role: Optional[str]) -> bool:
+class AuthEmailLoginRequest(BaseModel):
+    email: str
+    password: str
+
+class DemoLoginRequest(BaseModel):
+    role: str
+
+class AdminAddProductRequest(BaseModel):
+    id: str
+    name: str
+    retail_price: float
+    floor_price: float
+    stock: int
+    image_url: str
+    brand: str
+
+def check_admin_access(x_dev_token: Optional[str] = None, x_user_role: Optional[str] = None, authorization: Optional[str] = None) -> bool:
     if x_dev_token == DEV_AUTH_TOKEN:
         return True
     if x_user_role and x_user_role.lower() == "admin":
         return True
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+        payload = verify_jwt_token(token)
+        if payload and payload.get("role") == "admin":
+            return True
     return False
 
-@app.post("/api/auth/demo-login", response_model=UserProfile)
-@app.post("/api/auth/google-login", response_model=UserProfile)
-async def auth_login(req: AuthLoginRequest):
+# Email Sign Up (Register)
+@app.post("/api/auth/signup")
+@app.post("/api/auth/register")
+async def auth_register(req: AuthRegisterRequest):
+    data = users.load_users()
+    email = req.email.strip().lower()
+    if email in data["users"]:
+        raise HTTPException(status_code=400, detail="An account with this email already exists.")
+    
+    token = uuid.uuid4().hex
+    password_hash = users.hash_password(req.password)
+    
+    role = req.role.strip().lower() if req.role else "user"
+    avatar = (
+        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"
+        if role == "admin"
+        else "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"
+    )
+    
+    data["users"][email] = {
+        "name": req.name.strip(),
+        "password_hash": password_hash,
+        "role": role,
+        "verified": False,
+        "verification_token": token,
+        "avatar": avatar
+    }
+    users.save_users(data)
+    
+    # Trigger verification email
+    users.send_verification_email(email, req.name.strip(), token)
+    
+    verify_url = f"http://127.0.0.1:8000/api/auth/verify?token={token}&email={email}"
+    return {
+        "status": "success",
+        "message": "Verification email sent. Please check your inbox or server logs.",
+        "verification_url": verify_url
+    }
+
+# Email Verification Link Callback
+from fastapi.responses import HTMLResponse
+@app.get("/api/auth/verify", response_class=HTMLResponse)
+async def auth_verify_link(token: str, email: str):
+    data = users.load_users()
+    email = email.strip().lower()
+    user = data["users"].get(email)
+    
+    if not user or user.get("verification_token") != token:
+        return """
+        <html>
+        <body style="background:#09090b;color:#ef4444;font-family:sans-serif;text-align:center;padding:50px;">
+          <h2 style="font-size:24px;">❌ Invalid or Expired Token</h2>
+          <p style="color:#a1a1aa;margin-top:10px;">The email verification link is invalid or expired. Please sign up again.</p>
+        </body>
+        </html>
+        """
+        
+    user["verified"] = True
+    user["verification_token"] = ""
+    users.save_users(data)
+    
+    return """
+    <html>
+    <body style="background:#09090b;color:#10b981;font-family:sans-serif;text-align:center;padding:50px;">
+      <h2 style="font-size:24px;">✓ Account Verified! 🎉</h2>
+      <p style="color:#a1a1aa;margin-top:10px;">Your KicksVault account is successfully verified. You can now close this tab and log in to the application.</p>
+    </body>
+    </html>
+    """
+
+# Email Sign In (Login)
+@app.post("/api/auth/login")
+async def auth_email_login(req: AuthEmailLoginRequest):
+    data = users.load_users()
+    email = req.email.strip().lower()
+    user = data["users"].get(email)
+    
+    if not user or not users.verify_password(req.password, user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Invalid email or password.")
+        
+    if not user.get("verified", False):
+        token = user.get("verification_token")
+        if not token:
+            token = uuid.uuid4().hex
+            user["verification_token"] = token
+            users.save_users(data)
+        users.send_verification_email(email, user["name"], token)
+        raise HTTPException(status_code=400, detail="Please verify your email address first. Verification link resent.")
+        
+    user_id = f"usr_{hashlib.md5((email + user['role']).encode()).hexdigest()[:8]}"
+    
+    # Generate 1-hour JWT token
+    now = time.time()
+    expires_at = now + 3600
+    payload = {
+        "user_id": user_id,
+        "email": email,
+        "role": user["role"],
+        "name": user["name"],
+        "avatar": user["avatar"],
+        "exp": expires_at
+    }
+    token = create_jwt_token(payload)
+    
+    return {
+        "token": token,
+        "role": user["role"],
+        "expires_at": expires_at * 1000,
+        "user": {
+            "user_id": user_id,
+            "role": user["role"],
+            "name": user["name"],
+            "email": email,
+            "avatar": user["avatar"]
+        }
+    }
+
+@app.post("/api/auth/google-login")
+@app.post("/api/auth/google")
+async def auth_google(req: AuthLoginRequest):
     role = "admin" if (req.role and req.role.lower() == "admin") else "user"
+    email = req.email.strip().lower() if req.email else ""
+    name = req.name or "Google User"
+    avatar = req.avatar or "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"
+    
+    if req.credential:
+        try:
+            import base64
+            parts = req.credential.split('.')
+            if len(parts) >= 2:
+                padding = '=' * (4 - (len(parts[1]) % 4))
+                payload = json.loads(base64.urlsafe_b64decode(parts[1] + padding).decode('utf-8'))
+                email = payload.get("email", email).strip().lower()
+                name = payload.get("name", name)
+                avatar = payload.get("picture", avatar)
+        except Exception as e:
+            print(f"[WARN] Failed to parse Google credential token: {e}")
+
+    # Admin check
+    data = users.load_users()
+    if email == "admin@kicksvault.in" or (email in data["users"] and data["users"][email]["role"] == "admin") or email.startswith("admin@"):
+        role = "admin"
+
+    if email not in data["users"]:
+        data["users"][email] = {
+            "name": name,
+            "password_hash": users.hash_password(uuid.uuid4().hex[:12]),
+            "role": role,
+            "verified": True,
+            "verification_token": "",
+            "avatar": avatar
+        }
+        users.save_users(data)
+    else:
+        # Auto-verify if logged in via Google
+        data["users"][email]["verified"] = True
+        users.save_users(data)
+
+    user_info = data["users"][email]
+    user_id = f"usr_{hashlib.md5((email + role).encode()).hexdigest()[:8]}"
+    
+    # Generate 1-hour JWT token
+    now = time.time()
+    expires_at = now + 3600
+    payload = {
+        "user_id": user_id,
+        "email": email,
+        "role": role,
+        "name": name,
+        "avatar": avatar,
+        "exp": expires_at
+    }
+    token = create_jwt_token(payload)
+    
+    return {
+        "token": token,
+        "role": role,
+        "expires_at": expires_at * 1000,
+        "user": {
+            "user_id": user_id,
+            "role": role,
+            "name": name,
+            "email": email,
+            "avatar": avatar
+        }
+    }
+
+@app.post("/api/auth/demo-login")
+async def auth_demo_login(req: DemoLoginRequest):
+    role = req.role.strip().lower()
+    if role not in ["user", "admin"]:
+        raise HTTPException(status_code=400, detail="Invalid role. Must be 'user' or 'admin'.")
+        
     default_name = "Merchant Administrator" if role == "admin" else "Verified Collector"
     default_email = "admin@kicksvault.in" if role == "admin" else "collector@kicksvault.in"
     default_avatar = (
@@ -487,21 +698,80 @@ async def auth_login(req: AuthLoginRequest):
         if role == "admin"
         else "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"
     )
+    
+    data = users.load_users()
+    if default_email not in data["users"]:
+        data["users"][default_email] = {
+            "name": default_name,
+            "password_hash": users.hash_password("admin123" if role == "admin" else "collector123"),
+            "role": role,
+            "verified": True,
+            "verification_token": "",
+            "avatar": default_avatar
+        }
+        users.save_users(data)
+        
+    user_id = f"usr_{hashlib.md5((default_email + role).encode()).hexdigest()[:8]}"
+    
+    # Generate 1-hour JWT token
+    now = time.time()
+    expires_at = now + 3600
+    payload = {
+        "user_id": user_id,
+        "email": default_email,
+        "role": role,
+        "name": default_name,
+        "avatar": default_avatar,
+        "exp": expires_at
+    }
+    token = create_jwt_token(payload)
+    
+    return {
+        "token": token,
+        "role": role,
+        "expires_at": expires_at * 1000,
+        "user": {
+            "user_id": user_id,
+            "role": role,
+            "name": default_name,
+            "email": default_email,
+            "avatar": default_avatar
+        }
+    }
 
-    name = req.name or default_name
-    email = req.email or default_email
-    avatar = req.avatar or default_avatar
-    user_id = f"usr_{hashlib.md5((email + role).encode()).hexdigest()[:8]}"
-    token = f"kv_tok_{role}_{hashlib.sha256((user_id + DEV_AUTH_TOKEN).encode()).hexdigest()[:16]}"
-
-    return UserProfile(
-        user_id=user_id,
-        role=role,
-        name=name,
-        email=email,
-        avatar=avatar,
-        token=token
+# ----- Protected Admin Endpoints -----
+@app.post("/api/admin/products")
+async def admin_add_product(
+    req: AdminAddProductRequest,
+    authorization: Optional[str] = Header(None),
+    x_user_role: Optional[str] = Header(None, alias="X-User-Role"),
+    x_dev_token: Optional[str] = Header(None, alias="X-Dev-Token")
+):
+    if not check_admin_access(x_dev_token, x_user_role, authorization):
+        raise HTTPException(status_code=403, detail="Forbidden: Admin access required.")
+        
+    prod = add_product_to_catalog(
+        product_id=req.id.strip(),
+        name=req.name.strip(),
+        description=f"Luxury {req.brand} sneakers.",
+        retail_price=req.retail_price,
+        floor_price=req.floor_price,
+        stock=req.stock,
+        badge="New Drop",
+        image=req.image_url.strip(),
+        brand=req.brand.strip()
     )
+    return {"status": "created", "product": prod, "total_products": len(CATALOG)}
+
+@app.get("/api/admin/brands")
+async def get_admin_brands():
+    return [
+        {"name": "Jordan", "logo": "https://images.unsplash.com/photo-1534312527009-56c7016453e6?auto=format&fit=crop&w=100&q=80"},
+        {"name": "Nike", "logo": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=100&q=80"},
+        {"name": "Yeezy", "logo": "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=100&q=80"},
+        {"name": "New Balance", "logo": "https://images.unsplash.com/photo-1608231387042-66d1773070a5?auto=format&fit=crop&w=100&q=80"},
+        {"name": "Travis Scott", "logo": "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?auto=format&fit=crop&w=100&q=80"}
+    ]
 
 # ----- Last Failed Order Endpoint -----
 @app.get("/api/last-failed-order")
@@ -527,8 +797,8 @@ class CreateRazorpayOrderRequest(BaseModel):
     session_id: Optional[str] = None
     customer_name: Optional[str] = None
     customer_email: Optional[str] = None
+    phone: Optional[str] = None
     delivery_location: Optional[str] = None
-
 
 class VerifyPaymentRequest(BaseModel):
     razorpay_order_id: str
@@ -536,7 +806,6 @@ class VerifyPaymentRequest(BaseModel):
     razorpay_signature: Optional[str] = ""
     product_id: str
     amount: float
-
 
 @app.post("/api/razorpay/create-order")
 async def create_razorpay_order_endpoint(req: CreateRazorpayOrderRequest):
@@ -546,24 +815,52 @@ async def create_razorpay_order_endpoint(req: CreateRazorpayOrderRequest):
     receipt_id = f"rcpt_{int(datetime.utcnow().timestamp())}_{req.product_id}"
 
     rzp_order_id = f"order_{uuid.uuid4().hex[:14]}"
+    payment_link_url = ""
+    use_mock_checkout = True
+
     try:
         if key_id and key_secret:
             import razorpay
             client = razorpay.Client(auth=(key_id, key_secret))
-            order_data = client.order.create({
+            
+            # Create a real Payment Link so user redirects to Razorpay Hosted Checkout
+            # This directly fulfills "redirecting to the razorpay to pay"
+            link_data = client.payment_link.create({
                 "amount": amount_paise,
                 "currency": "INR",
-                "receipt": receipt_id,
+                "accept_partial": False,
+                "first_min_partial_amount": 0,
+                "description": f"Purchase of {req.product_id} — Agentic Commerce",
+                "customer": {
+                    "name": req.customer_name or "Verified Collector",
+                    "email": req.customer_email or "collector@kicksvault.in",
+                    "contact": req.phone or "+919876543210"
+                },
+                "notify": {
+                    "sms": False,
+                    "email": False
+                },
+                "reminder_enable": False,
                 "notes": {
                     "product_id": req.product_id,
                     "session_id": req.session_id or "",
                     "delivery_location": req.delivery_location or "India",
-                }
+                },
+                "callback_url": "http://127.0.0.1:8000/api/razorpay/callback",
+                "callback_method": "get"
             })
-            if order_data and order_data.get("id"):
-                rzp_order_id = order_data["id"]
+            
+            if link_data and link_data.get("short_url"):
+                rzp_order_id = link_data["id"]
+                payment_link_url = link_data["short_url"]
+                use_mock_checkout = False
     except Exception as e:
-        print(f"[WARN] Razorpay standard order creation fallback: {e}")
+        print(f"[WARN] Razorpay link generation fallback: {e}")
+
+    if use_mock_checkout:
+        # Fallback to local mock hosted checkout page if API limits (30 links) are hit
+        product_name = CATALOG.get(req.product_id, {}).get("name", req.product_id)
+        payment_link_url = f"/static/razorpay_mock_checkout.html?order_id={rzp_order_id}&amount={req.amount}&product_id={req.product_id}&product_name={product_name}"
 
     # Register in order storage
     create_order(rzp_order_id, req.product_id, req.amount, req.session_id or "user")
@@ -576,8 +873,38 @@ async def create_razorpay_order_endpoint(req: CreateRazorpayOrderRequest):
         "key_id": key_id or "rzp_test_TTekkjfzRu8Ovg",
         "product_id": req.product_id,
         "product_name": CATALOG.get(req.product_id, {}).get("name", req.product_id),
+        "payment_link_url": payment_link_url
     }
 
+# Razorpay Redirect Callback GET Route
+from fastapi.responses import RedirectResponse
+@app.get("/api/razorpay/callback")
+async def razorpay_callback_endpoint(
+    razorpay_payment_id: Optional[str] = None,
+    razorpay_payment_link_id: Optional[str] = None,
+    razorpay_payment_link_reference_id: Optional[str] = None,
+    razorpay_payment_link_status: Optional[str] = None,
+    razorpay_signature: Optional[str] = None
+):
+    # Verify the status
+    order_id = razorpay_payment_link_id or razorpay_payment_link_reference_id
+    if not order_id:
+        return HTMLResponse("<html><body><h2>Error: Missing order_id in Razorpay callback</h2></body></html>", status_code=400)
+        
+    order = get_order(order_id)
+    if not order:
+        return HTMLResponse("<html><body><h2>Error: Order not found in ledger</h2></body></html>", status_code=404)
+
+    is_paid = (razorpay_payment_link_status and razorpay_payment_link_status.lower() == "paid") or razorpay_payment_id
+    
+    if is_paid:
+        update_order_status(order_id, "paid", datetime.utcnow())
+        redirect_url = f"/?status=success&order_id={order_id}&payment_id={razorpay_payment_id or 'pay_redirected'}&signature={razorpay_signature or ''}&amount={order['amount']}&product_id={order['product_id']}"
+    else:
+        update_order_status(order_id, "failed", datetime.utcnow())
+        redirect_url = f"/?status=failed&order_id={order_id}"
+
+    return RedirectResponse(url=redirect_url)
 
 @app.post("/api/razorpay/verify-payment")
 async def verify_payment_endpoint(req: VerifyPaymentRequest):

@@ -186,7 +186,8 @@ def add_product_to_catalog(
     floor_price: float,
     stock: int = 1,
     badge: str = "Verified Authentic",
-    image: Optional[str] = None
+    image: Optional[str] = None,
+    brand: Optional[str] = None
 ) -> Dict:
     """Dynamically add or update a product in the live catalog."""
     CATALOG[product_id] = {
@@ -197,7 +198,8 @@ def add_product_to_catalog(
         "floor_price": float(floor_price),
         "stock": max(0, int(stock)),
         "badge": badge,
-        "image": image or "https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=800&q=80"
+        "image": image or "https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=800&q=80",
+        "brand": brand or "Jordan"
     }
     return CATALOG[product_id]
 
