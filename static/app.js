@@ -716,7 +716,7 @@ async function renderProductGrid() {
               </div>
               <span style="font-size:11px;color:var(--emerald);font-weight:600">✓ In Vault</span>
             </div>
-            <button onclick="startNegotiationForProduct('${pid}', '${esc(p.name)}')" class="btn btn-primary" style="width:100%;justify-content:center;font-size:12px;padding:9px 12px">
+            <button onclick="startNegotiation('${pid}', '${esc(p.name)}', ${p.price})" class="btn btn-primary" style="width:100%;justify-content:center;font-size:12px;padding:9px 12px">
               <i data-lucide="message-square" style="width:14px;height:14px"></i>
               Negotiate with AI Concierge
             </button>
@@ -729,17 +729,85 @@ async function renderProductGrid() {
   lucide.createIcons();
 }
 
-function startNegotiationForProduct(productId, productName) {
+function startNegotiation(productId, productName, retailPrice) {
   if (currentUser.role === 'admin') {
     alert("🔒 Merchant Administrators cannot negotiate or chat. Please switch your role to 'Verified Collector' (Buyer View) via the top-right profile pill to negotiate.");
     return;
   }
+  
+  // Switch to chat view
   showPage('page-chat');
+  
+  const seedMessage = `I'm interested in the ${productName} (Retail: ₹${retailPrice.toLocaleString('en-IN')}). What's your best offer?`;
+  
+  // Render human message in chat
+  appendUser(seedMessage);
+  showTyping();
+  setSentinel('eval');
+  logMini(`[USER] ${seedMessage.slice(0, 80)}`);
+
   const input = document.getElementById('chat-input');
-  if (input) {
-    input.value = `Tell me about the ${productName} (${productId}). What is the best price?`;
-    input.focus();
-  }
+  if (input) input.value = '';
+
+  isSending = true;
+  const sendBtn = document.getElementById('send-btn');
+  if (sendBtn) sendBtn.disabled = true;
+  
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: seedMessage,
+      session_id: sessionId,
+      location: userDeliveryLocation,
+      history: chatHistory
+    })
+  })
+  .then(resp => {
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    return resp.json();
+  })
+  .then(data => {
+    chatHistory.push({ role: 'user', content: seedMessage });
+    chatHistory.push({ role: 'assistant', content: data.reply });
+
+    hideTyping();
+    appendAgent(data.reply);
+    updateStageBadge(data.negotiation_stage);
+    logMini(`[AGENT] ${data.reply.slice(0, 80)}${data.reply.length > 80 ? '…' : ''}`);
+
+    if (data.delivery_location && data.delivery_location !== userDeliveryLocation) {
+      userDeliveryLocation = data.delivery_location;
+      localStorage.setItem('kv_delivery_location', userDeliveryLocation);
+      updateLocationUI();
+    }
+
+    if (data.guardrail_triggered) {
+      showGuardrailAlert(`🛡️ Vault Sentinel: Best available collector pricing locked in at ₹${Number(data.agreed_price).toLocaleString('en-IN')}.`);
+      setSentinel('enforced');
+      logTerminal('warn', `[SENTINEL] Vault reserve enforced — product: ${data.product_id} · final: ₹${data.agreed_price}`);
+    } else {
+      setSentinel('idle');
+    }
+
+    if (data.checkout_url) {
+      renderCheckoutCard(data);
+      logTerminal('ok', `[PAYMENT LINK] Created — ₹${data.agreed_price} · ${data.product_id}`);
+      logTerminal('ok', `[DESTINATION] Priority delivery routed to: 📍 ${userDeliveryLocation}`);
+      logTerminal('ok', `[URL] ${data.checkout_url}`);
+    }
+  })
+  .catch(err => {
+    hideTyping();
+    appendSystem(`⚠ Error: ${err.message}`);
+    logTerminal('fail', `[ERROR] Chat API: ${err.message}`);
+    setSentinel('idle');
+  })
+  .finally(() => {
+    isSending = false;
+    if (sendBtn) sendBtn.disabled = false;
+    if (input) input.focus();
+  });
 }
 function initLocation() {
   updateLocationUI();
@@ -981,16 +1049,6 @@ function initChat() {
       const input = document.getElementById('chat-input');
       if (input) { input.value = c.dataset.prompt; sendMessage(); }
     });
-  });
-
-  // Pay via Razorpay Sandbox Button Trigger (Launches Official Razorpay Test Popup)
-  document.getElementById('checkout-link')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    if (currentCheckout) {
-      launchOfficialRazorpayCheckout(currentCheckout);
-    } else {
-      appendSystem('⚠ Please negotiate and lock in an agreed price with the AI Concierge first.');
-    }
   });
 
   document.getElementById('sim-success-chat')?.addEventListener('click', () => {
@@ -1259,7 +1317,14 @@ function initPhoneCollectModal() {
       window._pendingCheckout._phone = '+91' + phone;
       window._pendingCheckout._name  = name  || currentUser.name;
       window._pendingCheckout._email = email || currentUser.email;
-      await launchOfficialRazorpayCheckout(window._pendingCheckout);
+      await openRazorpayCheckout(
+        window._pendingCheckout.product_id,
+        window._pendingCheckout.amount,
+        PRODUCTS[window._pendingCheckout.product_id]?.name || window._pendingCheckout.product_id,
+        window._pendingCheckout._phone,
+        window._pendingCheckout._name,
+        window._pendingCheckout._email
+      );
     }
   });
 
@@ -1334,9 +1399,7 @@ function showPaymentSuccessScreen({ orderId, paymentId, amount, productId, hmac 
   lucide.createIcons();
 }
 
-async function launchOfficialRazorpayCheckout(checkoutData) {
-  if (!checkoutData) return;
-
+async function openRazorpayCheckout(productId, agreedPrice, productName, prefillPhone = null, prefillName = null, prefillEmail = null) {
   const btn = document.getElementById('btn-proceed-razorpay') || document.getElementById('checkout-link');
   if (btn) {
     btn.style.pointerEvents = 'none';
@@ -1345,21 +1408,15 @@ async function launchOfficialRazorpayCheckout(checkoutData) {
   }
 
   try {
-    const resp = await fetch('/api/razorpay/create-order', {
+    // Step 1: Get Order ID from backend
+    const res = await fetch('/api/create-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        amount: Number(checkoutData.amount),
-        product_id: checkoutData.product_id,
-        session_id: sessionId,
-        customer_name: checkoutData._name || currentUser.name,
-        customer_email: checkoutData._email || currentUser.email,
-        phone: checkoutData._phone || "+919876543210",
-        delivery_location: userDeliveryLocation
-      })
+      body: JSON.stringify({ product_id: productId, amount: agreedPrice })
     });
+    const data = await res.json();
 
-    const order = await resp.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to initialize payment');
 
     if (btn) {
       btn.style.pointerEvents = 'auto';
@@ -1371,47 +1428,57 @@ async function launchOfficialRazorpayCheckout(checkoutData) {
       lucide.createIcons();
     }
 
-    // Launch official Razorpay Checkout JS SDK popup if script is loaded and not fallback mock mode
-    if (typeof Razorpay !== 'undefined' && order.key_id && order.payment_link_url && !order.payment_link_url.includes('mock_checkout')) {
-      logTerminal('info', `[POPUP] Launching official Razorpay Checkout SDK popup for order: ${order.order_id}`);
-      const options = {
-        key: order.key_id,
-        amount: order.amount_paise,
-        currency: order.currency || "INR",
-        name: "KicksVault India",
-        description: `Purchase of ${checkoutData.product_id} — Agentic Commerce`,
-        order_id: order.order_id,
-        handler: function(response) {
-          const redirectUrl = `/?status=success&order_id=${order.order_id}&payment_id=${response.razorpay_payment_id}&signature=${response.razorpay_signature}&amount=${checkoutData.amount}&product_id=${checkoutData.product_id}`;
-          window.location.href = redirectUrl;
-        },
-        prefill: {
-          name: checkoutData._name || currentUser.name,
-          email: checkoutData._email || currentUser.email,
-          contact: checkoutData._phone || "+919876543210"
-        },
-        theme: {
-          color: "#6366f1"
+    if (typeof Razorpay === 'undefined') {
+      const fallbackUrl = `/static/razorpay_mock_checkout.html?order_id=${data.order_id}&amount=${agreedPrice}&product_id=${productId}&product_name=${productName}`;
+      logTerminal('warn', `[FALLBACK] Razorpay SDK not loaded, redirecting to: ${fallbackUrl}`);
+      window.location.href = fallbackUrl;
+      return;
+    }
+
+    // Step 2: Open Razorpay Native Modal
+    const options = {
+      key: data.key_id,
+      amount: data.amount,
+      currency: data.currency || "INR",
+      name: "KicksVault India",
+      description: `Purchase of ${productName}`,
+      order_id: data.order_id,
+      handler: async function (response) {
+        // Step 3: Verify Payment Signature on backend
+        const verifyRes = await fetch('/api/verify-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            product_id: productId,
+            amount: agreedPrice
+          })
+        });
+        const verifyData = await verifyRes.json();
+
+        if (verifyRes.ok) {
+          window.location.href = `/?status=success&order_id=${response.razorpay_order_id}&payment_id=${response.razorpay_payment_id}&signature=${response.razorpay_signature}&amount=${agreedPrice}&product_id=${productId}`;
+        } else {
+          alert(`Payment verification failed: ${verifyData.detail || 'Unknown error'}`);
         }
-      };
-      const rzp = new Razorpay(options);
-      rzp.on('payment.failed', function(response) {
-        logTerminal('error', `[PAYMENT] Razorpay payment failed: ${response.error.description}`);
-        alert(`⚠️ Payment failed: ${response.error.description}`);
-      });
-      rzp.open();
-      return;
-    }
-
-    // Redirect user to Razorpay Hosted Checkout (or mock checkout page)
-    if (order.payment_link_url) {
-      logTerminal('info', `[REDIRECT] Redirecting user to Razorpay Hosted Checkout: ${order.payment_link_url}`);
-      window.location.href = order.payment_link_url;
-      return;
-    }
-
-    alert("⚠️ Could not generate Razorpay payment link. Please try again.");
-
+      },
+      prefill: {
+        name: prefillName || currentUser.name || "Verified Collector",
+        email: prefillEmail || currentUser.email || "collector@kicksvault.in",
+        contact: prefillPhone || "+919876543210"
+      },
+      theme: {
+        color: "#6366f1"
+      }
+    };
+    const rzp = new Razorpay(options);
+    rzp.on('payment.failed', function(response) {
+      logTerminal('error', `[PAYMENT] Razorpay payment failed: ${response.error.description}`);
+      alert(`⚠️ Payment failed: ${response.error.description}`);
+    });
+    rzp.open();
   } catch (err) {
     if (btn) {
       btn.style.pointerEvents = 'auto';

@@ -26,6 +26,7 @@ from storage import create_order, update_order_status, get_order, get_all_orders
 from guardrails import CATALOG, get_catalog_summary, add_product_to_catalog, update_product_stock
 import users
 import time
+import razorpay
 from auth import create_jwt_token, verify_jwt_token
 
 _AGENT_IMPORT_ERROR: str | None = None
@@ -936,3 +937,68 @@ async def verify_payment_endpoint(req: VerifyPaymentRequest):
         "amount": req.amount,
         "product_id": req.product_id
     }
+
+class CreateOrderRequest(BaseModel):
+    product_id: str
+    amount: float # in INR
+
+@app.post("/api/create-order")
+async def create_razorpay_order(payload: CreateOrderRequest):
+    try:
+        key_id = os.getenv("RAZORPAY_KEY_ID", "rzp_test_TTekkjfzRu8Ovg")
+        key_secret = os.getenv("RAZORPAY_KEY_SECRET", "L30Mcc6q2pqZEAQX7HKjbgHG")
+        client = razorpay.Client(auth=(key_id, key_secret))
+        
+        amount_in_paise = int(round(payload.amount * 100))
+        order_data = {
+            "amount": amount_in_paise,
+            "currency": "INR",
+            "receipt": f"rcpt_{payload.product_id}_{int(time.time())}",
+            "notes": {
+                "product_id": payload.product_id
+            }
+        }
+        order = client.order.create(data=order_data)
+        
+        # Save order record in local storage so it exists in the ledger
+        create_order(order["id"], payload.product_id, payload.amount, "customer")
+        
+        return {
+            "order_id": order["id"],
+            "amount": order["amount"],
+            "currency": "INR",
+            "key_id": key_id
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class VerifyPaymentRequestStandard(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    product_id: str
+    amount: float
+
+@app.post("/api/verify-payment")
+async def verify_payment(payload: VerifyPaymentRequestStandard):
+    try:
+        key_secret = os.getenv("RAZORPAY_KEY_SECRET", "L30Mcc6q2pqZEAQX7HKjbgHG")
+        # Verify HMAC-SHA256 signature
+        generated_signature = hmac.new(
+            bytes(key_secret, "utf-8"),
+            bytes(f"{payload.razorpay_order_id}|{payload.razorpay_payment_id}", "utf-8"),
+            hashlib.sha256
+        ).hexdigest()
+
+        if generated_signature != payload.razorpay_signature:
+            raise HTTPException(status_code=400, detail="Invalid Payment Signature")
+
+        # Save or update order in verified storage
+        order = get_order(payload.razorpay_order_id)
+        if not order:
+            create_order(payload.razorpay_order_id, payload.product_id, payload.amount, "customer")
+        update_order_status(payload.razorpay_order_id, "paid", datetime.utcnow())
+        
+        return {"status": "success", "message": "Payment verified successfully!"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
