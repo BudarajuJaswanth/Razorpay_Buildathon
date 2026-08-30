@@ -823,6 +823,19 @@ async def create_razorpay_order_endpoint(req: CreateRazorpayOrderRequest):
             import razorpay
             client = razorpay.Client(auth=(key_id, key_secret))
             
+            # Create a real Order so we can use standard popup
+            order_data = client.order.create({
+                "amount": amount_paise,
+                "currency": "INR",
+                "receipt": receipt_id,
+                "notes": {
+                    "product_id": req.product_id,
+                    "session_id": req.session_id or "",
+                    "delivery_location": req.delivery_location or "India",
+                }
+            })
+            rzp_order_id = order_data["id"]
+            
             # Create a real Payment Link so user redirects to Razorpay Hosted Checkout
             # This directly fulfills "redirecting to the razorpay to pay"
             link_data = client.payment_link.create({
@@ -851,7 +864,6 @@ async def create_razorpay_order_endpoint(req: CreateRazorpayOrderRequest):
             })
             
             if link_data and link_data.get("short_url"):
-                rzp_order_id = link_data["id"]
                 payment_link_url = link_data["short_url"]
                 use_mock_checkout = False
     except Exception as e:

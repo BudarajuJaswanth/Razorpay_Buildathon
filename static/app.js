@@ -1337,10 +1337,10 @@ function showPaymentSuccessScreen({ orderId, paymentId, amount, productId, hmac 
 async function launchOfficialRazorpayCheckout(checkoutData) {
   if (!checkoutData) return;
 
-  const btn = document.getElementById('checkout-link');
+  const btn = document.getElementById('btn-proceed-razorpay') || document.getElementById('checkout-link');
   if (btn) {
     btn.style.pointerEvents = 'none';
-    btn.innerHTML = `<i data-lucide="loader-2" class="spin" style="width:14px;height:14px"></i> Opening Razorpay Secure Rails…`;
+    btn.innerHTML = `<i data-lucide="loader-2" class="spin" style="width:14px;height:14px"></i> Opening Razorpay Secure...`;
     lucide.createIcons();
   }
 
@@ -1363,10 +1363,47 @@ async function launchOfficialRazorpayCheckout(checkoutData) {
 
     if (btn) {
       btn.style.pointerEvents = 'auto';
-      btn.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Pay via Razorpay Sandbox →`;
+      if (btn.id === 'btn-proceed-razorpay') {
+        btn.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Open Razorpay Checkout →`;
+      } else {
+        btn.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Pay via Razorpay Sandbox →`;
+      }
       lucide.createIcons();
     }
 
+    // Launch official Razorpay Checkout JS SDK popup if script is loaded and not fallback mock mode
+    if (typeof Razorpay !== 'undefined' && order.key_id && order.payment_link_url && !order.payment_link_url.includes('mock_checkout')) {
+      logTerminal('info', `[POPUP] Launching official Razorpay Checkout SDK popup for order: ${order.order_id}`);
+      const options = {
+        key: order.key_id,
+        amount: order.amount_paise,
+        currency: order.currency || "INR",
+        name: "KicksVault India",
+        description: `Purchase of ${checkoutData.product_id} — Agentic Commerce`,
+        order_id: order.order_id,
+        handler: function(response) {
+          const redirectUrl = `/?status=success&order_id=${order.order_id}&payment_id=${response.razorpay_payment_id}&signature=${response.razorpay_signature}&amount=${checkoutData.amount}&product_id=${checkoutData.product_id}`;
+          window.location.href = redirectUrl;
+        },
+        prefill: {
+          name: checkoutData._name || currentUser.name,
+          email: checkoutData._email || currentUser.email,
+          contact: checkoutData._phone || "+919876543210"
+        },
+        theme: {
+          color: "#6366f1"
+        }
+      };
+      const rzp = new Razorpay(options);
+      rzp.on('payment.failed', function(response) {
+        logTerminal('error', `[PAYMENT] Razorpay payment failed: ${response.error.description}`);
+        alert(`⚠️ Payment failed: ${response.error.description}`);
+      });
+      rzp.open();
+      return;
+    }
+
+    // Redirect user to Razorpay Hosted Checkout (or mock checkout page)
     if (order.payment_link_url) {
       logTerminal('info', `[REDIRECT] Redirecting user to Razorpay Hosted Checkout: ${order.payment_link_url}`);
       window.location.href = order.payment_link_url;
@@ -1378,7 +1415,11 @@ async function launchOfficialRazorpayCheckout(checkoutData) {
   } catch (err) {
     if (btn) {
       btn.style.pointerEvents = 'auto';
-      btn.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Pay via Razorpay Sandbox →`;
+      if (btn.id === 'btn-proceed-razorpay') {
+        btn.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Open Razorpay Checkout →`;
+      } else {
+        btn.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Pay via Razorpay Sandbox →`;
+      }
       lucide.createIcons();
     }
     alert(`⚠️ Error launching checkout: ${err.message}`);
