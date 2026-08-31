@@ -716,7 +716,7 @@ async function renderProductGrid() {
               </div>
               <span style="font-size:11px;color:var(--emerald);font-weight:600">✓ In Vault</span>
             </div>
-            <button onclick="startNegotiation('${pid}', '${esc(p.name)}', ${p.price})" class="btn btn-primary" style="width:100%;justify-content:center;font-size:12px;padding:9px 12px">
+            <button onclick="startNegotiation('${pid}')" class="btn btn-primary" style="width:100%;justify-content:center;font-size:12px;padding:9px 12px">
               <i data-lucide="message-square" style="width:14px;height:14px"></i>
               Negotiate with AI Concierge
             </button>
@@ -729,11 +729,15 @@ async function renderProductGrid() {
   lucide.createIcons();
 }
 
-function startNegotiation(productId, productName, retailPrice) {
+function startNegotiation(productId) {
   if (currentUser.role === 'admin') {
     alert("🔒 Merchant Administrators cannot negotiate or chat. Please switch your role to 'Verified Collector' (Buyer View) via the top-right profile pill to negotiate.");
     return;
   }
+  
+  const prod = PRODUCTS[productId] || {};
+  const productName = prod.name || productId;
+  const retailPrice = prod.price || 0;
   
   // Switch to chat view
   showPage('page-chat');
@@ -1750,7 +1754,7 @@ function renderCheckoutCard(data) {
   if (priceEl) priceEl.textContent = `₹${Number(data.agreed_price).toLocaleString('en-IN')}`;
 
   const linkEl = document.getElementById('checkout-link');
-  if (linkEl) linkEl.href = data.checkout_url || '#';
+  if (linkEl) linkEl.href = '#';
 
   const guardEl = document.getElementById('checkout-guardrail');
   if (guardEl) guardEl.style.display = data.guardrail_triggered ? 'flex' : 'none';
