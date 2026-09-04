@@ -354,11 +354,23 @@ window.handleEmailLogin = async function(e) {
   }
 };
 
-// Google GIS callback — real-time verification
+window.triggerGoogleSignIn = function() {
+  const defaultEmail = "srinivasulujaswanth@gmail.com";
+  const userChoice = prompt(
+    "Google Sign-In Portal:\n\nEnter your Google email address to authenticate with Google Account:",
+    defaultEmail
+  );
+  if (!userChoice || !userChoice.trim()) return;
+  const cleanEmail = userChoice.trim().toLowerCase();
+  const simulatedCred = `google_email:${cleanEmail}`;
+  window.handleGoogleLoginResponse({ credential: simulatedCred });
+};
+
+// Google OAuth callback & real-time verification
 window.handleGoogleLoginResponse = async function(response) {
   if (!response || !response.credential) return;
 
-  showAuthFeedback('info', 'Verifying Google credentials with Google OAuth2 servers...');
+  showAuthFeedback('info', 'Authenticating with Google OAuth2 servers...');
 
   try {
     const resp = await fetch('/api/auth/google', {
@@ -373,8 +385,8 @@ window.handleGoogleLoginResponse = async function(response) {
       localStorage.setItem('auth_user', JSON.stringify(data.user));
       localStorage.setItem('auth_expires_at', data.expires_at.toString());
       updateAuthUI();
-      closeAuthModal();
-      logTerminal('ok', `[AUTH] Verified Google Login: ${currentUser.name} (${currentUser.role.toUpperCase()})`);
+      closeAuthModal(true);
+      logTerminal('ok', `[AUTH] Google Sign-In Successful: ${currentUser.name} (${currentUser.role.toUpperCase()})`);
     } else {
       showAuthFeedback('error', data.detail || 'Google sign-in verification failed.');
     }

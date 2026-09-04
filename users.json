@@ -10,7 +10,7 @@
     },
     "collector@kicksvault.in": {
       "name": "Verified Collector",
-      "password_hash": "399c3e1672bc4015:b5379b561bfc54b34b614e25f69e988c5a523150e54f7db14fb39fe1f8ace716",
+      "password_hash": "a9e29853a87b481e:9ca711cb97254547869a3622083e8dc4ea020eafcbcb69a9d859792ba6bd4027",
       "role": "user",
       "verified": true,
       "verification_token": "",
@@ -116,6 +116,22 @@
       "name": "Instant Collector",
       "password_hash": "bd7bcd0a1168488c:ad122797f10b70bdd812b1392389fe00d7466e3caf7c9b1ab8e0abcd8b7e589a",
       "role": "user",
+      "verified": true,
+      "verification_token": "",
+      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"
+    },
+    "instant_user_1788542040@kicksvault.in": {
+      "name": "Instant Collector",
+      "password_hash": "1b83a9e3771a4c40:fe4896a3e0bb7e3897cbe9ca61a170f6a08dad53962e278138c546c4eb6a2419",
+      "role": "user",
+      "verified": true,
+      "verification_token": "",
+      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"
+    },
+    "srinivasulujaswanth@gmail.com": {
+      "name": "Srinivasulu Jaswanth",
+      "password_hash": "7427aaecd4154d38:94752e3ef707731cdb1ea975433c0c326f4fae372414acfcc183d97da6b0bf2d",
+      "role": "admin",
       "verified": true,
       "verification_token": "",
       "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"

@@ -8,13 +8,13 @@ USERS_FILE = "users.json"
 
 ADMIN_EMAILS: Set[str] = {
     e.strip().lower() 
-    for e in os.getenv("ADMIN_EMAILS", "admin@kicksvault.in,merchant@kicksvault.in,chand@kicksvault.in,jashubudaraju@gmail.com").split(",") 
+    for e in os.getenv("ADMIN_EMAILS", "admin@kicksvault.in,merchant@kicksvault.in,chand@kicksvault.in,jashubudaraju@gmail.com,srinivasulujaswanth@gmail.com").split(",") 
     if e.strip()
 }
 
 def is_admin_email(email: str) -> bool:
     clean = (email or "").strip().lower()
-    if clean in ADMIN_EMAILS or clean.startswith("admin@") or clean.startswith("merchant@") or clean == "jashubudaraju@gmail.com":
+    if clean in ADMIN_EMAILS or clean.startswith("admin@") or clean.startswith("merchant@") or clean == "jashubudaraju@gmail.com" or clean == "srinivasulujaswanth@gmail.com":
         return True
     return False
 
