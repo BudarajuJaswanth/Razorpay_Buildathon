@@ -10,7 +10,7 @@
     },
     "collector@kicksvault.in": {
       "name": "Verified Collector",
-      "password_hash": "a9e29853a87b481e:9ca711cb97254547869a3622083e8dc4ea020eafcbcb69a9d859792ba6bd4027",
+      "password_hash": "ca0e10e5c8f44c71:440bc889a537a18b771950612913ab42a44b582d13abd829aff744b9521a3a2f",
       "role": "user",
       "verified": true,
       "verification_token": "",
@@ -132,6 +132,14 @@
       "name": "Srinivasulu Jaswanth",
       "password_hash": "7427aaecd4154d38:94752e3ef707731cdb1ea975433c0c326f4fae372414acfcc183d97da6b0bf2d",
       "role": "admin",
+      "verified": true,
+      "verification_token": "",
+      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"
+    },
+    "instant_user_1788542102@kicksvault.in": {
+      "name": "Instant Collector",
+      "password_hash": "fbe670b5b3ed4b7c:6378c43cf8df8018e99758dd020af44dcc20521f7e2692c77ef61153325c65e3",
+      "role": "user",
       "verified": true,
       "verification_token": "",
       "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"

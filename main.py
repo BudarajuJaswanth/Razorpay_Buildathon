@@ -663,10 +663,8 @@ async def auth_google(req: AuthGoogleLoginRequest):
             email = idinfo.get("email", "").strip().lower()
             name = idinfo.get("name", "Google Collector")
             avatar = idinfo.get("picture", avatar)
-        except Exception:
-            # Fallback for sandbox credentials or local tokens
-            email = "srinivasulujaswanth@gmail.com"
-            name = "Srinivasulu Jaswanth"
+        except Exception as e:
+            raise HTTPException(status_code=401, detail=f"Invalid Google ID token: {str(e)}")
 
     if not email:
         raise HTTPException(status_code=400, detail="Google token verified, but email address was not returned.")
