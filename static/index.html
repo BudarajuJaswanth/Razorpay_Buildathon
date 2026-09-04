@@ -150,6 +150,11 @@
       <span id="user-role-badge" class="role-badge-user">👤 CUSTOMER</span>
     </div>
 
+    <!-- VIP Membership Status Button -->
+    <button class="nav-btn" id="btn-vip-status" onclick="openVipModal()" style="background:linear-gradient(135deg, rgba(234,179,8,0.2), rgba(245,158,11,0.3));border:1px solid rgba(234,179,8,0.5);color:#fef08a;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;cursor:pointer" title="View VIP Membership Status">
+      <i data-lucide="crown" style="width:12px;height:12px;color:#facc15"></i> VIP GrailPass
+    </button>
+
     <button class="btn-ghost btn-sm" id="btn-auth-trigger" style="padding:4px 8px;font-size:11px" title="Switch Account">
       <i data-lucide="log-in" style="width:12px;height:12px"></i>
     </button>
@@ -902,6 +907,36 @@
           </div>
         </div>
 
+        <!-- VIP Subscriptions & Customer Telemetry Ledger -->
+        <div class="glass" style="padding:20px;margin-top:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <i data-lucide="crown" style="width:14px;height:14px;color:#facc15"></i>
+              <span style="font-size:13px;font-weight:700">VIP GrailPass Subscriptions & Customer Telemetry</span>
+            </div>
+            <span class="pill" style="font-size:10px;background:rgba(234,179,8,0.2);color:#fef08a;border:1px solid rgba(234,179,8,0.4)">Razorpay Subscriptions (₹299/mo)</span>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="orders-table">
+              <thead>
+                <tr>
+                  <th>Subscription ID</th>
+                  <th>Customer Email & Name</th>
+                  <th>Plan & Billing</th>
+                  <th>Start Date</th>
+                  <th>Validity Expiry</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="subscriptions-tbody">
+                <tr>
+                  <td colspan="6" style="text-align:center;padding:30px;color:var(--text-muted)">Loading active customer subscriptions...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
       <!-- Right: Webhook Terminal -->
@@ -1086,5 +1121,66 @@
 
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="/static/app.js"></script>
+<!-- ============================================================
+     VIP MEMBERSHIP VALIDITY MODAL
+     ============================================================ -->
+<div id="modal-vip-membership" class="auth-overlay" style="display:none;z-index:99999">
+  <div class="auth-card" style="max-width:440px;background:var(--surface-1);border:1px solid rgba(234,179,8,0.4);border-radius:20px;padding:24px;color:#fff;text-align:left;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.9)">
+    <button onclick="closeVipModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--text-muted);cursor:pointer">
+      <i data-lucide="x" style="width:18px;height:18px"></i>
+    </button>
+    
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+      <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg, #eab308, #ca8a04);display:flex;align-items:center;justify-content:center;box-shadow:0 0 20px rgba(234,179,8,0.4)">
+        <i data-lucide="crown" style="width:24px;height:24px;color:#000"></i>
+      </div>
+      <div>
+        <div style="font-size:16px;font-weight:800;letter-spacing:-0.3px;color:#fef08a">KicksVault GrailPass VIP</div>
+        <div style="font-size:11px;color:var(--text-secondary)">Customer Membership & Validity Status</div>
+      </div>
+    </div>
+
+    <!-- VIP Status Card -->
+    <div style="background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.3);border-radius:14px;padding:16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span style="font-size:10px;font-weight:800;letter-spacing:0.05em;color:var(--text-muted)">MEMBERSHIP STATUS</span>
+        <span id="vip-badge-status" style="background:#22c55e;color:#000;font-size:10px;font-weight:900;padding:3px 10px;border-radius:12px">ACTIVE</span>
+      </div>
+      
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <div style="font-size:9px;color:var(--text-muted);font-weight:700">SUBSCRIBER</div>
+          <div id="vip-user-email" style="font-size:12px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis">collector@kicksvault.in</div>
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--text-muted);font-weight:700">RECURRING FEE</div>
+          <div style="font-size:12px;font-weight:700;color:#facc15">₹299 / month</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-top:10px;border-top:1px dashed rgba(255,255,255,0.15)">
+        <div>
+          <div style="font-size:9px;color:var(--text-muted);font-weight:700">VALID UNTIL</div>
+          <div id="vip-valid-until" style="font-size:12px;font-weight:800;color:#38bdf8">30 Days Active</div>
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--text-muted);font-weight:700">SUBSCRIPTION ID</div>
+          <div id="vip-sub-id" style="font-size:11px;font-family:var(--font-mono);color:var(--text-secondary)">sub_vip_9988...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Benefits -->
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:8px">UNLOCKED VIP PERKS:</div>
+    <ul style="list-style:none;padding:0;margin:0 0 18px 0;font-size:11px;color:var(--text-secondary);display:flex;flex-direction:column;gap:8px">
+      <li style="display:flex;align-items:center;gap:8px"><i data-lucide="check-circle-2" style="width:14px;height:14px;color:#22c55e"></i> <span>Instant <strong>₹1,000 extra discount</strong> on luxury negotiations</span></li>
+      <li style="display:flex;align-items:center;gap:8px"><i data-lucide="check-circle-2" style="width:14px;height:14px;color:#22c55e"></i> <span>Priority early access to limited deadstock drops</span></li>
+      <li style="display:flex;align-items:center;gap:8px"><i data-lucide="check-circle-2" style="width:14px;height:14px;color:#22c55e"></i> <span>Zero platform authentication & seller consignment fees</span></li>
+    </ul>
+
+    <button onclick="closeVipModal()" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:12px;font-weight:700">Done</button>
+  </div>
+</div>
+
 </body>
 </html>

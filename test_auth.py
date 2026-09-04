@@ -82,6 +82,30 @@ def test_google_login_invalid_credential_fails():
     res = client.post("/api/auth/google", json={"credential": "invalid_mock_credential_jwt"})
     assert res.status_code in [401, 500]
 
+def test_jashubudaraju_admin_login():
+    res = client.post("/api/auth/login", json={
+        "email": "jashubudaraju@gmail.com",
+        "password": "Jayaram@2006"
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert data["role"] == "admin"
+    assert data["user"]["email"] == "jashubudaraju@gmail.com"
+
+def test_vip_subscription_endpoints():
+    res = client.get("/api/user/subscription?email=jashubudaraju@gmail.com")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "success"
+    assert "subscription" in data
+
+    admin_res = client.get("/api/admin/subscriptions")
+    assert admin_res.status_code == 200
+    admin_data = admin_res.json()
+    assert admin_data["status"] == "success"
+    assert "subscriptions" in admin_data
+
 def test_demo_login_endpoint_removed():
     res = client.post("/api/auth/demo-login", json={"role": "admin"})
     assert res.status_code in [404, 405]

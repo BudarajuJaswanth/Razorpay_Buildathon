@@ -25,12 +25,12 @@
       "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"
     },
     "jashubudaraju@gmail.com": {
-      "name": "Jaswanth",
-      "password_hash": "48eab3e5e3754a98:a50aed3984ff1820c6fe8937d629d923875e017969102b4835083b7adac53ce6",
-      "role": "user",
+      "name": "Jashu Budaraju (Admin)",
+      "password_hash": "ebcaf51ac6c149db:20f2cc712e5cd5542bcf8d2033b90f3e09c9eafb2d4598faa65a3dd54caad24c",
+      "role": "admin",
       "verified": true,
       "verification_token": "",
-      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"
     },
     "jashu10111011@gmail.com": {
       "name": "jayaram",
@@ -67,6 +67,30 @@
     "instant_user_1788532108@kicksvault.in": {
       "name": "Instant Collector",
       "password_hash": "e8b3ea92b4ee46b1:e7100a58121cb3617f99298f34fad0b56f3ee0aa9169d66c6bc3cc26e1be0f44",
+      "role": "user",
+      "verified": true,
+      "verification_token": "",
+      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"
+    },
+    "instant_user_1788536362@kicksvault.in": {
+      "name": "Instant Collector",
+      "password_hash": "bb573e36d2694dd1:77ed92831125feb5f056bde4a2c47489c8d66e47f0e333fd0878f22786fd39f7",
+      "role": "user",
+      "verified": true,
+      "verification_token": "",
+      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"
+    },
+    "instant_user_1788536509@kicksvault.in": {
+      "name": "Instant Collector",
+      "password_hash": "16d0e897159f4dfb:d472c8740bac65a212487612e6b8b68db6741e04d16fe0f109e4fbdc6d1bd899",
+      "role": "user",
+      "verified": true,
+      "verification_token": "",
+      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"
+    },
+    "instant_user_1788536563@kicksvault.in": {
+      "name": "Instant Collector",
+      "password_hash": "25c8fe0dc55940b9:252bd7c984adbaca505c4252c9970cceb72cb4503062fd1e4e0b62ea8ac041bb",
       "role": "user",
       "verified": true,
       "verification_token": "",

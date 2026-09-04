@@ -107,6 +107,116 @@ def update_order_status(
         _persist_orders()
         supabase_db.save_order_to_supabase(order)
 
+_SUBSCRIPTIONS: Dict[str, Dict] = {}
+
+def save_subscription(
+    subscription_id: str,
+    customer_email: str,
+    customer_name: Optional[str] = None,
+    plan_name: str = "KicksVault GrailPass VIP Club",
+    amount: float = 299.0,
+    status: str = "active",
+    validity_days: int = 30,
+    customer_phone: Optional[str] = None,
+    shipping_address: Optional[str] = None
+) -> Dict:
+    """Save or update a customer VIP subscription record."""
+    with _ORDER_LOCK:
+        now = datetime.utcnow()
+        valid_until = datetime.fromtimestamp(now.timestamp() + (validity_days * 86400))
+        sub_record = {
+            "subscription_id": subscription_id,
+            "customer_email": (customer_email or "").strip().lower(),
+            "customer_name": customer_name or customer_email.split('@')[0].capitalize(),
+            "customer_phone": customer_phone or "+91 98765 43210",
+            "shipping_address": shipping_address or "KicksVault VIP Member Hub, India",
+            "plan_name": plan_name,
+            "amount": amount,
+            "billing_cycle": "Monthly",
+            "status": status,
+            "created_at": now.isoformat(),
+            "valid_until": valid_until.isoformat(),
+            "days_remaining": validity_days
+        }
+        _SUBSCRIPTIONS[subscription_id] = sub_record
+        # Also map by email for fast lookup
+        _SUBSCRIPTIONS[f"user:{sub_record['customer_email']}"] = sub_record
+        return sub_record
+
+def get_user_subscription(customer_email: str) -> Optional[Dict]:
+    """Retrieve active subscription record for a specific user email."""
+    if not customer_email:
+        return None
+    clean_email = customer_email.strip().lower()
+    sub = _SUBSCRIPTIONS.get(f"user:{clean_email}")
+    if sub:
+        # Calculate dynamic remaining days
+        try:
+            valid_dt = datetime.fromisoformat(sub["valid_until"])
+            remaining = (valid_dt - datetime.utcnow()).days
+            sub["days_remaining"] = max(0, remaining)
+        except Exception:
+            pass
+        return sub
+    
+    # Search in order history for subscription order
+    for order in get_all_orders():
+        if order.get("customer_id", "").strip().lower() == clean_email and (order.get("is_subscription") or order.get("product_id") == "grailpass_vip"):
+            created_str = order.get("paid_at") or order.get("created_at") or datetime.utcnow().isoformat()
+            try:
+                created_dt = datetime.fromisoformat(created_str)
+                valid_dt = datetime.fromtimestamp(created_dt.timestamp() + (30 * 86400))
+            except Exception:
+                valid_dt = datetime.fromtimestamp(datetime.utcnow().timestamp() + (30 * 86400))
+            return {
+                "subscription_id": order.get("order_id", "sub_vip_default"),
+                "customer_email": clean_email,
+                "customer_name": order.get("customer_name") or clean_email.split('@')[0].capitalize(),
+                "plan_name": "KicksVault GrailPass VIP Club",
+                "amount": order.get("amount", 299.0),
+                "billing_cycle": "Monthly",
+                "status": "active",
+                "created_at": created_str,
+                "valid_until": valid_dt.isoformat(),
+                "days_remaining": max(0, (valid_dt - datetime.utcnow()).days)
+            }
+    return None
+
+def get_all_subscriptions() -> List[Dict]:
+    """Return all recorded VIP subscriptions for Admin HUD."""
+    subs = []
+    seen_ids = set()
+    for key, sub in _SUBSCRIPTIONS.items():
+        if not key.startswith("user:") and sub.get("subscription_id") not in seen_ids:
+            seen_ids.add(sub["subscription_id"])
+            subs.append(sub)
+    
+    # Also include any subscription orders from order ledger
+    for order in get_all_orders():
+        if (order.get("is_subscription") or order.get("product_id") == "grailpass_vip") and order.get("order_id") not in seen_ids:
+            seen_ids.add(order["order_id"])
+            created_str = order.get("paid_at") or order.get("created_at") or datetime.utcnow().isoformat()
+            try:
+                created_dt = datetime.fromisoformat(created_str)
+                valid_dt = datetime.fromtimestamp(created_dt.timestamp() + (30 * 86400))
+            except Exception:
+                valid_dt = datetime.fromtimestamp(datetime.utcnow().timestamp() + (30 * 86400))
+            subs.append({
+                "subscription_id": order.get("order_id"),
+                "customer_email": order.get("customer_id", "member@kicksvault.in"),
+                "customer_name": order.get("customer_name") or "VIP Member",
+                "customer_phone": order.get("customer_phone") or "+91 98765 43210",
+                "shipping_address": order.get("shipping_address") or "KicksVault Hub",
+                "plan_name": "KicksVault GrailPass VIP Club",
+                "amount": order.get("amount", 299.0),
+                "billing_cycle": "Monthly",
+                "status": "active" if order.get("status") in ["paid", "created", "active"] else "expired",
+                "created_at": created_str,
+                "valid_until": valid_dt.isoformat(),
+                "days_remaining": max(0, (valid_dt - datetime.utcnow()).days)
+            })
+    return subs
+
 def get_order(order_id: str) -> Optional[Dict]:
     """Retrieve a single order by its ID."""
     return _ORDERS.get(order_id)
@@ -114,3 +224,4 @@ def get_order(order_id: str) -> Optional[Dict]:
 def get_all_orders() -> List[Dict]:
     """Return a list of all stored orders."""
     return list(_ORDERS.values())
+

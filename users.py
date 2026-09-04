@@ -8,13 +8,13 @@ USERS_FILE = "users.json"
 
 ADMIN_EMAILS: Set[str] = {
     e.strip().lower() 
-    for e in os.getenv("ADMIN_EMAILS", "admin@kicksvault.in,merchant@kicksvault.in,chand@kicksvault.in").split(",") 
+    for e in os.getenv("ADMIN_EMAILS", "admin@kicksvault.in,merchant@kicksvault.in,chand@kicksvault.in,jashubudaraju@gmail.com").split(",") 
     if e.strip()
 }
 
 def is_admin_email(email: str) -> bool:
     clean = (email or "").strip().lower()
-    if clean in ADMIN_EMAILS or clean.startswith("admin@") or clean.startswith("merchant@"):
+    if clean in ADMIN_EMAILS or clean.startswith("admin@") or clean.startswith("merchant@") or clean == "jashubudaraju@gmail.com":
         return True
     return False
 
@@ -79,6 +79,19 @@ def init_users_db():
         data["users"][admin_email] = {
             "name": "Merchant Administrator",
             "password_hash": hash_password("admin123"),
+            "role": "admin",
+            "verified": True,
+            "verification_token": "",
+            "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"
+        }
+        changed = True
+
+    # Preseed Admin Jashu Budaraju
+    jashu_email = "jashubudaraju@gmail.com"
+    if jashu_email not in data["users"] or not verify_password("Jayaram@2006", data["users"][jashu_email].get("password_hash", "")):
+        data["users"][jashu_email] = {
+            "name": "Jashu Budaraju (Admin)",
+            "password_hash": hash_password("Jayaram@2006"),
             "role": "admin",
             "verified": True,
             "verification_token": "",

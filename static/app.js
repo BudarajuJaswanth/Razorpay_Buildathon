@@ -1985,7 +1985,79 @@ async function pollOrders() {
     renderOrders(orders);
     renderMyOrders(orders);
     renderSettlements(orders);
+    pollSubscriptions();
   } catch (_) {}
+}
+
+async function pollSubscriptions() {
+  try {
+    const resp = await fetch('/api/admin/subscriptions');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data && data.subscriptions) {
+      renderSubscriptions(data.subscriptions);
+    }
+  } catch (_) {}
+}
+
+function renderSubscriptions(subscriptions) {
+  const tbody = document.getElementById('subscriptions-tbody');
+  if (!tbody) return;
+  
+  if (!subscriptions || !subscriptions.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-muted)">No active VIP subscriptions recorded yet.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = subscriptions.slice().reverse().map(sub => {
+    const expDate = sub.valid_until ? new Date(sub.valid_until).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '30 Days';
+    const startDate = sub.created_at ? new Date(sub.created_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : 'Today';
+    
+    return `<tr>
+      <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:11px" title="${sub.subscription_id}">${sub.subscription_id}</td>
+      <td style="white-space:nowrap">
+        <div style="font-weight:700;color:#fff">${sub.customer_name || 'VIP Subscriber'}</div>
+        <div style="font-size:10px;color:var(--text-muted)">${sub.customer_email || '—'}</div>
+      </td>
+      <td style="white-space:nowrap">
+        <div style="font-weight:700;color:#facc15">${sub.plan_name || 'KicksVault GrailPass VIP'}</div>
+        <div style="font-size:10px;color:var(--text-muted)">₹${sub.amount || 299} / ${sub.billing_cycle || 'Monthly'}</div>
+      </td>
+      <td style="color:var(--text-secondary);font-size:11px">${startDate}</td>
+      <td style="color:#38bdf8;font-weight:700;font-size:11px">${expDate} <span style="font-size:9px;color:var(--text-muted);font-weight:400">(${sub.days_remaining !== undefined ? sub.days_remaining : 30}d left)</span></td>
+      <td><span class="pill pill-emerald" style="font-size:9px;">ACTIVE VIP</span></td>
+    </tr>`;
+  }).join('');
+}
+
+async function openVipModal() {
+  const modal = document.getElementById('modal-vip-membership');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  
+  const curUserEmail = currentUser?.email || 'collector@kicksvault.in';
+  try {
+    const resp = await fetch(`/api/user/subscription?email=${encodeURIComponent(curUserEmail)}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.subscription) {
+        const sub = data.subscription;
+        document.getElementById('vip-user-email').innerText = sub.customer_email || curUserEmail;
+        document.getElementById('vip-sub-id').innerText = sub.subscription_id || 'sub_vip_active';
+        if (sub.valid_until) {
+          const dt = new Date(sub.valid_until);
+          document.getElementById('vip-valid-until').innerText = dt.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) + ` (${sub.days_remaining !== undefined ? sub.days_remaining : 30}d left)`;
+        }
+      }
+    }
+  } catch (_) {}
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeVipModal() {
+  const modal = document.getElementById('modal-vip-membership');
+  if (modal) modal.style.display = 'none';
 }
 
 function renderMyOrders(orders) {

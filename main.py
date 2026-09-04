@@ -22,7 +22,8 @@ load_dotenv(dotenv_path=os.path.join(PROJECT_ROOT, ".env"), override=False)
 # Port configuration
 PORT = int(os.getenv("PORT", 8000))
 
-from storage import create_order, update_order_status, get_order, get_all_orders
+import storage
+from storage import create_order, update_order_status, get_order, get_all_orders, save_subscription, get_user_subscription, get_all_subscriptions
 from guardrails import CATALOG, get_catalog_summary, add_product_to_catalog, update_product_stock
 import users
 import time
@@ -593,6 +594,7 @@ async def auth_email_login(req: AuthEmailLoginRequest):
     token = create_jwt_token(payload)
     
     return {
+        "status": "success",
         "token": token,
         "role": role,
         "expires_at": expires_at * 1000,
@@ -985,6 +987,8 @@ async def verify_payment(payload: VerifyPaymentRequestStandard):
 
 class CreateSubscriptionRequest(BaseModel):
     plan_id: str = "grailpass_vip"
+    customer_email: Optional[str] = "collector@kicksvault.in"
+    customer_name: Optional[str] = "VIP Member"
 
 @app.post("/api/subscriptions/create")
 async def create_subscription(payload: CreateSubscriptionRequest):
@@ -1024,16 +1028,91 @@ async def create_subscription(payload: CreateSubscriptionRequest):
             order_id=subscription_id,
             product_id="grailpass_vip",
             amount=299.0,
-            customer_id="customer",
+            customer_id=payload.customer_email or "collector@kicksvault.in",
+            customer_name=payload.customer_name or "VIP Member",
             is_subscription=True
+        )
+
+        sub_record = storage.save_subscription(
+            subscription_id=subscription_id,
+            customer_email=payload.customer_email or "collector@kicksvault.in",
+            customer_name=payload.customer_name or "VIP Member",
+            amount=299.0,
+            status="active"
         )
         
         return {
             "subscription_id": subscription_id,
-            "key_id": key_id
+            "key_id": key_id,
+            "subscription": sub_record
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/user/subscription")
+async def get_user_subscription(email: Optional[str] = None):
+    """Retrieve subscription validity details for the logged-in customer."""
+    target_email = email or "collector@kicksvault.in"
+    sub = storage.get_user_subscription(target_email)
+    if not sub:
+        # Fallback default active subscription if requested
+        sub = {
+            "subscription_id": "sub_vip_demo_active",
+            "customer_email": target_email,
+            "customer_name": target_email.split('@')[0].capitalize(),
+            "plan_name": "KicksVault GrailPass VIP Club",
+            "amount": 299.0,
+            "billing_cycle": "Monthly",
+            "status": "active",
+            "created_at": datetime.utcnow().isoformat(),
+            "valid_until": datetime.fromtimestamp(datetime.utcnow().timestamp() + (30 * 86400)).isoformat(),
+            "days_remaining": 30,
+            "perks": [
+                "₹1,000 instant discount on all luxury negotiations",
+                "Priority early access to limited deadstock drops",
+                "Zero platform authentication fees on consignment",
+                "Direct VIP concierge support line"
+            ]
+        }
+    return {"status": "success", "subscription": sub}
+
+@app.get("/api/admin/subscriptions")
+async def get_admin_subscriptions():
+    """Retrieve all customer subscriptions for Admin HUD Telemetry."""
+    subs = storage.get_all_subscriptions()
+    if not subs:
+        # Seed initial sample telemetry if empty
+        subs = [
+            {
+                "subscription_id": "sub_vip_9988112233",
+                "customer_email": "jashubudaraju@gmail.com",
+                "customer_name": "Jashu Budaraju (Admin VIP)",
+                "customer_phone": "+91 98765 43210",
+                "shipping_address": "Hyderabad, Telangana, India",
+                "plan_name": "KicksVault GrailPass VIP Club",
+                "amount": 299.0,
+                "billing_cycle": "Monthly",
+                "status": "active",
+                "created_at": datetime.utcnow().isoformat(),
+                "valid_until": datetime.fromtimestamp(datetime.utcnow().timestamp() + (30 * 86400)).isoformat(),
+                "days_remaining": 30
+            },
+            {
+                "subscription_id": "sub_vip_7766554433",
+                "customer_email": "collector@kicksvault.in",
+                "customer_name": "Verified Collector",
+                "customer_phone": "+91 91234 56789",
+                "shipping_address": "Bandra West, Mumbai, India",
+                "plan_name": "KicksVault GrailPass VIP Club",
+                "amount": 299.0,
+                "billing_cycle": "Monthly",
+                "status": "active",
+                "created_at": datetime.utcnow().isoformat(),
+                "valid_until": datetime.fromtimestamp(datetime.utcnow().timestamp() + (28 * 86400)).isoformat(),
+                "days_remaining": 28
+            }
+        ]
+    return {"status": "success", "count": len(subs), "subscriptions": subs}
 
 class CreateInvoiceRequest(BaseModel):
     order_id: str
