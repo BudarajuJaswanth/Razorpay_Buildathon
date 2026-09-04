@@ -32,7 +32,7 @@
     </div>
     
     <h2 style="font-size:20px;font-weight:800;letter-spacing:-0.02em;margin-bottom:6px">KICKSVAULT ACCESS PORTAL</h2>
-    <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:16px">Authenticate with Google or standard email credentials to begin autonomous negotiation.</p>
+    <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:16px">Authenticate with official Google Sign-In or verified email credentials to access autonomous negotiation.</p>
 
     <!-- Google One-Tap/GIS Container -->
     <div style="margin-bottom:16px;display:flex;flex-direction:column;align-items:center;">
@@ -41,16 +41,7 @@
            data-callback="handleGoogleLoginResponse"
            data-auto_prompt="false">
       </div>
-      <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="dark" data-text="signin_with" data-size="large" data-logo_alignment="left"></div>
-    </div>
-
-    <!-- Role select for Google/Demo login -->
-    <div style="margin-bottom:16px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between">
-      <span style="font-size:11px;color:var(--text-secondary);font-weight:700">GOOGLE & DEMO ROLE:</span>
-      <select id="auth-role-select" style="background:var(--surface-2);border:1px solid var(--border);color:#fff;font-size:11px;padding:4px 8px;border-radius:6px;outline:none;cursor:pointer">
-        <option value="user">Verified Collector (User)</option>
-        <option value="admin">Merchant Administrator (Admin)</option>
-      </select>
+      <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="dark" data-text="signin_with" data-size="large" data-logo_alignment="left" style="width:100%"></div>
     </div>
 
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
@@ -91,35 +82,12 @@
         <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px">EMAIL</label>
         <input type="email" id="signup-email" required placeholder="arjun@example.com" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:#fff;outline:none"/>
       </div>
-      <div style="margin-bottom:10px">
+      <div style="margin-bottom:14px">
         <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px">PASSWORD</label>
         <input type="password" id="signup-password" required placeholder="Minimum 6 characters" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:#fff;outline:none"/>
       </div>
-      <div style="margin-bottom:14px">
-        <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px">ACCOUNT ROLE</label>
-        <select id="signup-role" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:#fff;outline:none;cursor:pointer">
-          <option value="user">Verified Collector (Buyer View)</option>
-          <option value="admin">Merchant Administrator (Seller HUD)</option>
-        </select>
-      </div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;font-size:12px">Register Account</button>
     </form>
-
-    <div style="display:flex;align-items:center;gap:10px;margin-top:16px;margin-bottom:12px">
-      <div style="flex:1;height:1px;background:var(--border)"></div>
-      <span style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono)">1-CLICK DEMO ACCOUNTS</span>
-      <div style="flex:1;height:1px;background:var(--border)"></div>
-    </div>
-
-    <!-- Quick role select demo logins -->
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button id="btn-login-customer" class="btn btn-ghost" style="flex:1;font-size:10px;padding:8px;justify-content:center">
-        <i data-lucide="user" style="width:12px;height:12px;color:var(--cyan)"></i> 👤 Quick Demo Customer
-      </button>
-      <button id="btn-login-admin" class="btn btn-ghost" style="flex:1;font-size:10px;padding:8px;justify-content:center">
-        <i data-lucide="shield" style="width:12px;height:12px;color:var(--amber)"></i> 🛡️ Quick Demo Admin
-      </button>
-    </div>
   </div>
 </div>
 
@@ -904,6 +872,36 @@
           </div>
         </div>
 
+        <!-- Marketplace Route Settlement ledger -->
+        <div class="glass" style="padding:20px;margin-top:20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <i data-lucide="share-2" style="width:13px;height:13px;color:var(--indigo-bright)"></i>
+              <span style="font-size:13px;font-weight:700">Consignment Marketplace Settlement Ledger (Razorpay Route)</span>
+            </div>
+            <span class="pill pill-emerald" style="font-size:10px;">90/10 Consignment Splits</span>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="orders-table">
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Product</th>
+                  <th>Total Amount</th>
+                  <th>Seller Payout (90%)</th>
+                  <th>Platform Fee (10%)</th>
+                  <th>Settlement Status</th>
+                </tr>
+              </thead>
+              <tbody id="settlements-tbody">
+                <tr>
+                  <td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted)">No settlement splits processed yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
       <!-- Right: Webhook Terminal -->
@@ -1030,6 +1028,58 @@
         Stay in Chat
       </button>
     </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SHIPPING ADDRESS MODAL (centered overlay)
+     ============================================================ -->
+<div id="shipping-address-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4" style="z-index: 9999;">
+  <div class="relative w-full max-w-md bg-[#121215] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-200">
+    <div class="text-center space-y-1">
+      <h3 class="text-xl font-bold text-white tracking-tight">Delivery Destination</h3>
+      <p class="text-xs text-zinc-400">Enter your shipping details for priority deadstock courier dispatch.</p>
+    </div>
+
+    <form id="shipping-address-form" onsubmit="handleShippingSubmit(event)" class="space-y-3 text-left">
+      <div>
+        <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Full Name</label>
+        <input type="text" id="ship-name" required class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500" placeholder="Arjun Sharma"/>
+      </div>
+      <div>
+        <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Street Address</label>
+        <input type="text" id="ship-address" required class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500" placeholder="Flat No. / Street / Area"/>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">City</label>
+          <input type="text" id="ship-city" required class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500" placeholder="Mumbai"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">State</label>
+          <input type="text" id="ship-state" required class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500" placeholder="Maharashtra"/>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">PIN Code</label>
+          <input type="text" id="ship-pin" required pattern="[0-9]{6}" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500" placeholder="400050"/>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Phone Number</label>
+          <input type="text" id="ship-phone" required pattern="[0-9]{10}" class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-indigo-500" placeholder="9876543210"/>
+        </div>
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="closeShippingModal()" class="flex-1 py-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs transition-all">
+          Cancel
+        </button>
+        <button type="submit" class="flex-grow py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-lg shadow-indigo-600/30">
+          Continue to Payment
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 

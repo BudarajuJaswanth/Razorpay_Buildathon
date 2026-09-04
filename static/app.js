@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initNav();
   initChat();
   initHUD();
-  initPhoneCollectModal();
+  initShippingModal();
   initCustomerSimDeck();
   initInventoryManager();
   renderProductGrid();
@@ -187,11 +187,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // Check if redirected back from Razorpay checkout link
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('status') === 'success') {
-    const orderId = urlParams.get('order_id');
+    const orderId = urlParams.get('order_id') || urlParams.get('subscription_id');
     const paymentId = urlParams.get('payment_id');
     const signature = urlParams.get('signature');
-    const amount = urlParams.get('amount');
+    const amount = urlParams.get('amount') || 299;
     const productId = urlParams.get('product_id');
+    const address = urlParams.get('shipping_address');
+    if (address) {
+      userDeliveryLocation = decodeURIComponent(address);
+    }
     showPaymentSuccessScreen({
       orderId,
       paymentId,
@@ -238,7 +242,6 @@ window.handleEmailSignup = async function(e) {
   const name = document.getElementById('signup-name')?.value.trim();
   const email = document.getElementById('signup-email')?.value.trim();
   const password = document.getElementById('signup-password')?.value;
-  const role = document.getElementById('signup-role')?.value || 'user';
 
   if (!name || !email || !password) return;
   if (password.length < 6) {
@@ -246,18 +249,24 @@ window.handleEmailSignup = async function(e) {
     return;
   }
 
-  showAuthFeedback('info', 'Registering account and generating verification link...');
+  showAuthFeedback('info', 'Creating account and logging in...');
 
   try {
     const resp = await fetch('/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password, role })
+      body: JSON.stringify({ name, email, password })
     });
     const data = await resp.json();
     if (resp.ok) {
-      showAuthFeedback('success', `Verification email sent! Click <a href="${data.verification_url}" target="_blank" style="text-decoration:underline;color:var(--emerald);font-weight:bold">verify</a> to activate your account.`);
+      currentUser = data.user;
+      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('auth_user', JSON.stringify(data.user));
+      localStorage.setItem('auth_expires_at', data.expires_at.toString());
+      updateAuthUI();
+      closeAuthModal();
       document.getElementById('form-email-signup').reset();
+      logTerminal('ok', `[AUTH] Account registered and instant logged in: ${currentUser.name} (${currentUser.role.toUpperCase()})`);
     } else {
       showAuthFeedback('error', data.detail || 'Registration failed.');
     }
@@ -298,18 +307,40 @@ window.handleEmailLogin = async function(e) {
   }
 };
 
-// Google GIS callback
-window.handleGoogleLoginResponse = function(response) {
+// Google GIS callback — real-time verification
+window.handleGoogleLoginResponse = async function(response) {
   if (!response || !response.credential) return;
-  const roleSelect = document.getElementById('auth-role-select')?.value || 'user';
-  loginAs(roleSelect, null, null, response.credential);
+
+  showAuthFeedback('info', 'Verifying Google credentials with Google OAuth2 servers...');
+
+  try {
+    const resp = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential: response.credential })
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      currentUser = data.user;
+      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('auth_user', JSON.stringify(data.user));
+      localStorage.setItem('auth_expires_at', data.expires_at.toString());
+      updateAuthUI();
+      closeAuthModal();
+      logTerminal('ok', `[AUTH] Verified Google Login: ${currentUser.name} (${currentUser.role.toUpperCase()})`);
+    } else {
+      showAuthFeedback('error', data.detail || 'Google sign-in verification failed.');
+    }
+  } catch (err) {
+    showAuthFeedback('error', `Network error: ${err.message}`);
+  }
 };
 
 function showAuthFeedback(type, msg) {
   const box = document.getElementById('auth-feedback-box');
   if (!box) return;
   box.style.display = 'block';
-  box.textContent = msg;
+  box.innerHTML = msg;
   if (type === 'error') {
     box.style.background = 'rgba(239,68,68,0.1)';
     box.style.color = 'var(--red)';
@@ -325,6 +356,19 @@ function showAuthFeedback(type, msg) {
   }
 }
 
+function checkSessionExpiry() {
+  const storedToken = localStorage.getItem('auth_token');
+  const storedExpires = localStorage.getItem('auth_expires_at');
+  if (storedToken && storedExpires) {
+    if (Date.now() > parseFloat(storedExpires)) {
+      clearAuthSession();
+      openAuthModal();
+      showAuthFeedback('error', 'Your 1-hour session has expired. Please sign in again.');
+      logTerminal('warn', '[AUTH] 1-Hour session token expired. User logged out.');
+    }
+  }
+}
+
 function initAuth() {
   const storedUser = localStorage.getItem('auth_user');
   const storedToken = localStorage.getItem('auth_token');
@@ -334,7 +378,10 @@ function initAuth() {
     currentUser = JSON.parse(storedUser);
     if (Date.now() > parseFloat(storedExpires)) {
       clearAuthSession();
-      setTimeout(openAuthModal, 100);
+      setTimeout(() => {
+        openAuthModal();
+        showAuthFeedback('error', 'Your 1-hour session has expired. Please sign in again.');
+      }, 100);
     } else {
       updateAuthUI();
     }
@@ -343,17 +390,12 @@ function initAuth() {
     setTimeout(openAuthModal, 100);
   }
 
+  // Periodic 1-hour expiration checker
+  setInterval(checkSessionExpiry, 30000);
+
   document.getElementById('user-profile-pill')?.addEventListener('click', openAuthModal);
   document.getElementById('btn-auth-trigger')?.addEventListener('click', openAuthModal);
   document.getElementById('btn-close-auth')?.addEventListener('click', closeAuthModal);
-
-  document.getElementById('btn-login-customer')?.addEventListener('click', () => {
-    loginAs('user', 'Verified Collector', 'collector@kicksvault.in');
-  });
-
-  document.getElementById('btn-login-admin')?.addEventListener('click', () => {
-    loginAs('admin', 'Merchant Administrator', 'admin@kicksvault.in');
-  });
 }
 
 function openAuthModal() {
@@ -365,48 +407,11 @@ function openAuthModal() {
 
 function closeAuthModal() {
   if (!localStorage.getItem('auth_token')) {
-    showAuthFeedback('error', 'Please authenticate to access KicksVault.');
+    showAuthFeedback('error', 'Please authenticate with Google or email credentials.');
     return;
   }
   const modal = document.getElementById('auth-modal');
   if (modal) modal.style.display = 'none';
-}
-
-async function loginAs(role, name = null, email = null, credential = null) {
-  try {
-    const resp = await fetch('/api/auth/demo-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role })
-    });
-    if (resp.ok) {
-      const data = await resp.json();
-      currentUser = data.user;
-      localStorage.setItem('auth_token', data.token);
-      localStorage.setItem('auth_user', JSON.stringify(data.user));
-      localStorage.setItem('auth_expires_at', data.expires_at.toString());
-      updateAuthUI();
-      closeAuthModal();
-      logTerminal('ok', `[AUTH] Signed in via Demo/Google as: ${currentUser.name} (${currentUser.role.toUpperCase()})`);
-    } else {
-      throw new Error("Demo login endpoint returned failure status");
-    }
-  } catch (err) {
-    currentUser = {
-      user_id: `usr_${role}`,
-      role: role,
-      name: name || (role === 'admin' ? "Merchant Administrator" : "Verified Collector"),
-      email: email || (role === 'admin' ? "admin@kicksvault.in" : "collector@kicksvault.in"),
-      avatar: role === 'admin' 
-        ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'
-        : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'
-    };
-    localStorage.setItem('auth_token', `mock_tok_${role}`);
-    localStorage.setItem('auth_user', JSON.stringify(currentUser));
-    localStorage.setItem('auth_expires_at', (Date.now() + 3600 * 1000).toString());
-    updateAuthUI();
-    closeAuthModal();
-  }
 }
 
 function updateAuthUI() {
@@ -609,7 +614,10 @@ async function handleAddNewProduct(e) {
   try {
     const resp = await fetch('/api/admin/products', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+      },
       body: JSON.stringify({
         id,
         name,
@@ -1265,79 +1273,85 @@ async function runCustomerSim(type) {
 }
 
 // ============================================================
-//  PHONE COLLECTION MODAL — shown BEFORE Razorpay opens
+//  SHIPPING ADDRESS MODAL — shown BEFORE Razorpay opens
 // ============================================================
-function openPhoneCollectModal(checkoutData) {
+function openShippingAddressModal(checkoutData) {
   if (!checkoutData) return;
 
-  // Pre-fill from currentUser
-  const nameEl  = document.getElementById('checkout-name');
-  const emailEl = document.getElementById('checkout-email');
-  if (nameEl)  nameEl.value  = currentUser.name  !== 'Verified Collector' ? currentUser.name  : '';
-  if (emailEl) emailEl.value = currentUser.email !== 'collector@kicksvault.in' ? currentUser.email : '';
+  // Pre-fill from localStorage or currentUser
+  const nameEl  = document.getElementById('ship-name');
+  const phoneEl = document.getElementById('ship-phone');
+  const addrEl  = document.getElementById('ship-address');
+  const cityEl  = document.getElementById('ship-city');
+  const stateEl = document.getElementById('ship-state');
+  const pinEl   = document.getElementById('ship-pin');
 
-  // Populate summary strip
-  const prod = PRODUCTS[checkoutData.product_id] || {};
-  const img   = document.getElementById('phone-modal-img');
-  const prodEl= document.getElementById('phone-modal-product');
-  const ordEl = document.getElementById('phone-modal-order');
-  const amtEl = document.getElementById('phone-modal-amount');
-  if (img)    img.src = prod.image || '';
-  if (prodEl) prodEl.textContent = prod.name || checkoutData.product_id;
-  if (ordEl)  ordEl.textContent  = checkoutData.order_id || `order_${Date.now()}`;
-  if (amtEl)  amtEl.textContent  = `₹${Number(checkoutData.amount).toLocaleString('en-IN')}`;
+  if (nameEl)  nameEl.value  = localStorage.getItem('kb_customer_name') || (currentUser.name  !== 'Verified Collector' ? currentUser.name  : '');
+  if (phoneEl) phoneEl.value = localStorage.getItem('kb_customer_phone') || '';
+  if (addrEl)  addrEl.value  = localStorage.getItem('kb_customer_address') || '';
+  if (cityEl)  cityEl.value  = localStorage.getItem('kb_customer_city') || '';
+  if (stateEl) stateEl.value = localStorage.getItem('kb_customer_state') || '';
+  if (pinEl)   pinEl.value   = localStorage.getItem('kb_customer_pin') || '';
 
-  // Hide error
-  const err = document.getElementById('phone-modal-error');
-  if (err) err.style.display = 'none';
-
-  // Store pending checkout
   window._pendingCheckout = checkoutData;
 
-  const modal = document.getElementById('phone-collect-modal');
-  if (modal) { modal.style.display = 'flex'; lucide.createIcons(); }
+  const modal = document.getElementById('shipping-address-modal');
+  if (modal) { modal.classList.remove('hidden'); lucide.createIcons(); }
 }
 
-function closePhoneCollectModal() {
-  const modal = document.getElementById('phone-collect-modal');
-  if (modal) modal.style.display = 'none';
+function closeShippingModal() {
+  const modal = document.getElementById('shipping-address-modal');
+  if (modal) modal.classList.add('hidden');
 }
 
-function initPhoneCollectModal() {
-  document.getElementById('btn-cancel-phone-modal')?.addEventListener('click', closePhoneCollectModal);
-  document.getElementById('btn-proceed-razorpay')?.addEventListener('click', async () => {
-    const phone = (document.getElementById('checkout-phone')?.value || '').trim();
-    const name  = (document.getElementById('checkout-name')?.value  || '').trim();
-    const email = (document.getElementById('checkout-email')?.value || '').trim();
-    const err   = document.getElementById('phone-modal-error');
+window.handleShippingSubmit = async function(event) {
+  event.preventDefault();
+  const name  = document.getElementById('ship-name').value.trim();
+  const phone = document.getElementById('ship-phone').value.trim();
+  const addr  = document.getElementById('ship-address').value.trim();
+  const city  = document.getElementById('ship-city').value.trim();
+  const state = document.getElementById('ship-state').value.trim();
+  const pin   = document.getElementById('ship-pin').value.trim();
 
-    if (!phone || phone.length < 10) {
-      if (err) { err.style.display = 'block'; err.textContent = '⚠ Please enter a valid 10-digit mobile number.'; }
-      return;
-    }
+  // Cache to localStorage
+  localStorage.setItem('kb_customer_name', name);
+  localStorage.setItem('kb_customer_phone', phone);
+  localStorage.setItem('kb_customer_address', addr);
+  localStorage.setItem('kb_customer_city', city);
+  localStorage.setItem('kb_customer_state', state);
+  localStorage.setItem('kb_customer_pin', pin);
 
-    closePhoneCollectModal();
-    if (window._pendingCheckout) {
-      window._pendingCheckout._phone = '+91' + phone;
-      window._pendingCheckout._name  = name  || currentUser.name;
-      window._pendingCheckout._email = email || currentUser.email;
-      await openRazorpayCheckout(
-        window._pendingCheckout.product_id,
-        window._pendingCheckout.amount,
-        PRODUCTS[window._pendingCheckout.product_id]?.name || window._pendingCheckout.product_id,
-        window._pendingCheckout._phone,
-        window._pendingCheckout._name,
-        window._pendingCheckout._email
-      );
-    }
-  });
+  const formattedAddress = `${addr}, ${city}, ${state} - ${pin}`;
+  localStorage.setItem('kb_customer_full_address', formattedAddress);
 
-  // Also wire the checkout-link button to open phone modal instead
+  closeShippingModal();
+
+  if (window._pendingCheckout) {
+    window._pendingCheckout._phone = '+91' + phone;
+    window._pendingCheckout._name  = name;
+    window._pendingCheckout._email = currentUser.email || 'arjun@example.com';
+    window._pendingCheckout._address = formattedAddress;
+
+    await executeRazorpayCheckout(
+      window._pendingCheckout.product_id,
+      window._pendingCheckout.amount,
+      PRODUCTS[window._pendingCheckout.product_id]?.name || window._pendingCheckout.product_id,
+      window._pendingCheckout._phone,
+      window._pendingCheckout._name,
+      window._pendingCheckout._email,
+      window._pendingCheckout._address
+    );
+  }
+}
+
+window.closeShippingModal = closeShippingModal;
+
+function initShippingModal() {
+  // Wire the checkout-link button to open shipping modal instead
   document.getElementById('checkout-link')?.addEventListener('click', (e) => {
     e.preventDefault();
-    if (currentCheckout) openPhoneCollectModal(currentCheckout);
+    if (currentCheckout) openShippingAddressModal(currentCheckout);
   });
-
 }
 
 // ============================================================
@@ -1347,7 +1361,10 @@ function showPaymentSuccessScreen({ orderId, paymentId, amount, productId, hmac 
   const modal = document.getElementById('payment-success-modal');
   if (!modal) return;
 
-  const prod = PRODUCTS[productId] || {};
+  const prod = productId === 'grailpass_vip' ? {
+    name: "KicksVault GrailPass VIP Club",
+    image: "https://images.unsplash.com/photo-1543508282-6319a3e2621f?auto=format&fit=crop&w=400&q=80"
+  } : (PRODUCTS[productId] || {});
 
   const receiptContent = document.getElementById('receipt-modal-content');
   if (receiptContent) {
@@ -1358,7 +1375,7 @@ function showPaymentSuccessScreen({ orderId, paymentId, amount, productId, hmac 
         <img id="success-product-img" src="${prod.image || ''}" alt="Product" style="width:50px;height:50px;border-radius:8px;object-fit:cover;border:1px solid rgba(255,255,255,0.1);flex-shrink:0"/>
         <div style="min-width:0;flex-grow:1">
           <div id="success-product-name" style="font-size:13px;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${prod.name || productId}</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">KicksVault Certified · NFC Authenticated</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${productId === 'grailpass_vip' ? 'Recurring Monthly VIP GrailPass' : 'KicksVault Certified · NFC Authenticated'}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div style="font-size:9px;color:var(--text-muted)">PAID</div>
@@ -1368,7 +1385,7 @@ function showPaymentSuccessScreen({ orderId, paymentId, amount, productId, hmac 
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:11px">
         <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:8px">
-          <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:4px">ORDER ID</div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.08em;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:4px">${productId === 'grailpass_vip' ? 'SUBSCRIPTION ID' : 'ORDER ID'}</div>
           <div id="success-order-id" style="font-size:10px;font-family:var(--font-mono);color:var(--indigo-bright);word-break:break-all">${orderId}</div>
         </div>
         <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:8px">
@@ -1396,15 +1413,59 @@ function showPaymentSuccessScreen({ orderId, paymentId, amount, productId, hmac 
           <div id="success-hmac" style="font-size:9px;font-family:var(--font-mono);color:var(--text-muted);margin-top:2px;word-break:break-all">${hmac ? hmac.slice(0, 48) + '…' : '—'}</div>
         </div>
       </div>
+
+      <!-- GST Invoice container -->
+      <div id="success-invoice-container" style="margin-top: 10px;">
+        <div style="font-size:10px;color:var(--text-muted);text-align:center;padding:6px;">
+          <i data-lucide="loader-2" class="spin" style="width:10px;height:10px;display:inline-block;vertical-align:middle;margin-right:4px;"></i> Generating GST Tax Invoice...
+        </div>
+      </div>
     `;
   }
 
   modal.classList.remove('hidden');
   lucide.createIcons();
+
+  // Fetch GST Invoice Link from backend
+  const customerName = localStorage.getItem('kb_customer_name') || 'Arjun Sharma';
+  const customerPhone = localStorage.getItem('kb_customer_phone') || '9876543210';
+  const customerEmail = currentUser.email || 'arjun@example.com';
+  
+  fetch('/api/invoices/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      order_id: orderId,
+      payment_id: paymentId || 'pay_verified',
+      product_id: productId,
+      amount: parseFloat(amount),
+      customer_name: customerName,
+      customer_email: customerEmail,
+      customer_phone: customerPhone
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.invoice_url) {
+      const container = document.getElementById('success-invoice-container');
+      if (container) {
+        container.innerHTML = `
+          <a href="${data.invoice_url}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;background:var(--indigo-dim);border:1px solid var(--indigo);border-radius:8px;color:#fff;text-decoration:none;font-size:11px;font-weight:700;transition:opacity 0.2s">
+            <i data-lucide="file-text" style="width:13px;height:13px"></i>
+            View Official Razorpay GST Invoice
+          </a>
+        `;
+        lucide.createIcons();
+      }
+    }
+  })
+  .catch(err => {
+    console.error("Failed to fetch invoice:", err);
+  });
 }
 
-async function openRazorpayCheckout(productId, agreedPrice, productName, prefillPhone = null, prefillName = null, prefillEmail = null) {
-  const btn = document.getElementById('btn-proceed-razorpay') || document.getElementById('checkout-link');
+async function executeRazorpayCheckout(productId, agreedPrice, productName, prefillPhone = null, prefillName = null, prefillEmail = null, shippingAddress = null) {
+  const btn = document.getElementById('checkout-link');
   if (btn) {
     btn.style.pointerEvents = 'none';
     btn.innerHTML = `<i data-lucide="loader-2" class="spin" style="width:14px;height:14px"></i> Opening Razorpay Secure...`;
@@ -1412,62 +1473,55 @@ async function openRazorpayCheckout(productId, agreedPrice, productName, prefill
   }
 
   try {
-    // Step 1: Get Order ID from backend
-    const res = await fetch('/api/create-order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ product_id: productId, amount: agreedPrice })
-    });
-    const data = await res.json();
-
-    if (!res.ok) throw new Error(data.detail || 'Failed to initialize payment');
+    let data;
+    if (productId === 'grailpass_vip') {
+      const res = await fetch('/api/subscriptions/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_id: 'grailpass_vip' })
+      });
+      data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to initialize subscription');
+    } else {
+      const res = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: productId,
+          amount: agreedPrice,
+          shipping_address: shippingAddress,
+          customer_name: prefillName,
+          customer_phone: prefillPhone
+        })
+      });
+      data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to initialize order');
+    }
 
     if (btn) {
       btn.style.pointerEvents = 'auto';
-      if (btn.id === 'btn-proceed-razorpay') {
-        btn.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Open Razorpay Checkout →`;
-      } else {
-        btn.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Pay via Razorpay Sandbox →`;
-      }
+      btn.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Pay via Razorpay Sandbox →`;
       lucide.createIcons();
     }
 
     if (typeof Razorpay === 'undefined') {
-      const fallbackUrl = `/static/razorpay_mock_checkout.html?order_id=${data.order_id}&amount=${agreedPrice}&product_id=${productId}&product_name=${productName}`;
+      let fallbackUrl;
+      if (productId === 'grailpass_vip') {
+        fallbackUrl = `/static/razorpay_mock_checkout.html?subscription_id=${data.subscription_id}&amount=299&product_id=grailpass_vip&product_name=${productName}`;
+      } else {
+        fallbackUrl = `/static/razorpay_mock_checkout.html?order_id=${data.order_id}&amount=${agreedPrice}&product_id=${productId}&product_name=${productName}`;
+      }
       logTerminal('warn', `[FALLBACK] Razorpay SDK not loaded, redirecting to: ${fallbackUrl}`);
       window.location.href = fallbackUrl;
       return;
     }
 
-    // Step 2: Open Razorpay Native Modal
     const options = {
       key: data.key_id,
-      amount: data.amount,
-      currency: data.currency || "INR",
+      amount: productId === 'grailpass_vip' ? 29900 : data.amount,
+      currency: "INR",
       name: "KicksVault India",
-      description: `Purchase of ${productName}`,
-      order_id: data.order_id,
-      handler: async function (response) {
-        // Step 3: Verify Payment Signature on backend
-        const verifyRes = await fetch('/api/verify-payment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-            product_id: productId,
-            amount: agreedPrice
-          })
-        });
-        const verifyData = await verifyRes.json();
-
-        if (verifyRes.ok) {
-          window.location.href = `/?status=success&order_id=${response.razorpay_order_id}&payment_id=${response.razorpay_payment_id}&signature=${response.razorpay_signature}&amount=${agreedPrice}&product_id=${productId}`;
-        } else {
-          alert(`Payment verification failed: ${verifyData.detail || 'Unknown error'}`);
-        }
-      },
+      description: productId === 'grailpass_vip' ? "KicksVault GrailPass VIP Club Subscription" : `Purchase of ${productName}`,
       prefill: {
         name: prefillName || currentUser.name || "Verified Collector",
         email: prefillEmail || currentUser.email || "collector@kicksvault.in",
@@ -1477,8 +1531,40 @@ async function openRazorpayCheckout(productId, agreedPrice, productName, prefill
         color: "#6366f1"
       }
     };
+
+    if (productId === 'grailpass_vip') {
+      options.subscription_id = data.subscription_id;
+      options.handler = async function (response) {
+        window.location.href = `/?status=success&subscription_id=${response.razorpay_subscription_id}&payment_id=${response.razorpay_payment_id}&signature=${response.razorpay_signature}&amount=299&product_id=grailpass_vip`;
+      };
+    } else {
+      options.order_id = data.order_id;
+      options.handler = async function (response) {
+        const verifyRes = await fetch('/api/verify-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            product_id: productId,
+            amount: agreedPrice,
+            shipping_address: shippingAddress,
+            customer_name: prefillName,
+            customer_phone: prefillPhone
+          })
+        });
+        const verifyData = await verifyRes.json();
+        if (verifyRes.ok) {
+          window.location.href = `/?status=success&order_id=${response.razorpay_order_id}&payment_id=${response.razorpay_payment_id}&signature=${response.razorpay_signature}&amount=${agreedPrice}&product_id=${productId}&shipping_address=${encodeURIComponent(shippingAddress)}&customer_name=${encodeURIComponent(prefillName)}&customer_phone=${encodeURIComponent(prefillPhone)}`;
+        } else {
+          alert(`Payment verification failed: ${verifyData.detail || 'Unknown error'}`);
+        }
+      };
+    }
+
     const rzp = new Razorpay(options);
-    rzp.on('payment.failed', function(response) {
+    rzp.on('payment.failed', function (response) {
       logTerminal('error', `[PAYMENT] Razorpay payment failed: ${response.error.description}`);
       alert(`⚠️ Payment failed: ${response.error.description}`);
     });
@@ -1486,11 +1572,7 @@ async function openRazorpayCheckout(productId, agreedPrice, productName, prefill
   } catch (err) {
     if (btn) {
       btn.style.pointerEvents = 'auto';
-      if (btn.id === 'btn-proceed-razorpay') {
-        btn.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Open Razorpay Checkout →`;
-      } else {
-        btn.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Pay via Razorpay Sandbox →`;
-      }
+      btn.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Pay via Razorpay Sandbox →`;
       lucide.createIcons();
     }
     alert(`⚠️ Error launching checkout: ${err.message}`);
@@ -1736,11 +1818,19 @@ async function sendMessage() {
 
 function renderCheckoutCard(data) {
   const prodId = data.product_id || 'PROD_001';
-  const prod = PRODUCTS[prodId] || {};
+  let prod = PRODUCTS[prodId];
+  if (prodId === 'grailpass_vip') {
+    prod = {
+      name: "KicksVault GrailPass VIP Club",
+      image: "https://images.unsplash.com/photo-1543508282-6319a3e2621f?auto=format&fit=crop&w=400&q=80"
+    };
+  }
+  if (!prod) prod = {};
+
   currentCheckout = {
-    order_id: `order_chat_${Date.now()}`,
+    order_id: `sub_chat_${Date.now()}`,
     product_id: prodId,
-    amount: data.agreed_price,
+    amount: data.agreed_price || 299.0,
     checkout_url: data.checkout_url
   };
 
@@ -1751,15 +1841,29 @@ function renderCheckoutCard(data) {
   if (nameEl) nameEl.textContent = prod.name || prodId;
 
   const priceEl = document.getElementById('checkout-price');
-  if (priceEl) priceEl.textContent = `₹${Number(data.agreed_price).toLocaleString('en-IN')}`;
+  if (priceEl) {
+    if (prodId === 'grailpass_vip') {
+      priceEl.textContent = `₹299 / month`;
+    } else {
+      priceEl.textContent = `₹${Number(data.agreed_price).toLocaleString('en-IN')}`;
+    }
+  }
 
   const linkEl = document.getElementById('checkout-link');
-  if (linkEl) linkEl.href = '#';
+  if (linkEl) {
+    linkEl.href = '#';
+    if (prodId === 'grailpass_vip') {
+      linkEl.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Subscribe via Razorpay →`;
+    } else {
+      linkEl.innerHTML = `<i data-lucide="zap" style="width:15px;height:15px"></i> Pay via Razorpay Sandbox →`;
+    }
+  }
 
   const guardEl = document.getElementById('checkout-guardrail');
   if (guardEl) guardEl.style.display = data.guardrail_triggered ? 'flex' : 'none';
 
   document.getElementById('checkout-panel').style.display = 'block';
+  lucide.createIcons();
 }
 
 // ============================================================
@@ -1880,6 +1984,7 @@ async function pollOrders() {
     const orders = await resp.json();
     renderOrders(orders);
     renderMyOrders(orders);
+    renderSettlements(orders);
   } catch (_) {}
 }
 
@@ -1947,6 +2052,33 @@ function renderOrders(orders) {
         <span class="status-dot-sm" style="background:${s.dot}"></span>${s.label}
       </span></td>
       <td style="color:var(--text-muted)">${ts}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSettlements(orders) {
+  const tbody = document.getElementById('settlements-tbody');
+  if (!tbody) return;
+  
+  const paidOrders = orders?.filter(o => o.status === 'paid') || [];
+  if (!paidOrders.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted)">No settlement splits processed yet.</td></tr>`;
+    return;
+  }
+  
+  tbody.innerHTML = paidOrders.slice().reverse().map(o => {
+    const total = parseFloat(o.amount);
+    const seller = o.seller_payout || Math.round(total * 0.9 * 100) / 100;
+    const fee = o.platform_fee || Math.round(total * 0.1 * 100) / 100;
+    const prodLabel = o.product_id === 'grailpass_vip' ? 'GrailPass VIP' : o.product_id;
+    
+    return `<tr>
+      <td style="color:var(--text-muted);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.order_id}">${o.order_id}</td>
+      <td style="color:var(--text-secondary)">${prodLabel}</td>
+      <td style="color:var(--text-primary);font-weight:700">₹${total.toLocaleString('en-IN')}</td>
+      <td style="color:var(--emerald);font-weight:700">₹${seller.toLocaleString('en-IN')}</td>
+      <td style="color:var(--indigo-bright);font-weight:700">₹${fee.toLocaleString('en-IN')}</td>
+      <td><span class="pill pill-emerald" style="font-size:9px;">SETTLED</span></td>
     </tr>`;
   }).join('');
 }

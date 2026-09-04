@@ -178,6 +178,8 @@ def get_product(product_id: str) -> Dict:
     return CATALOG[product_id]
 
 
+import supabase_db
+
 def add_product_to_catalog(
     product_id: str,
     name: str,
@@ -190,7 +192,7 @@ def add_product_to_catalog(
     brand: Optional[str] = None
 ) -> Dict:
     """Dynamically add or update a product in the live catalog."""
-    CATALOG[product_id] = {
+    product = {
         "id": product_id,
         "name": name,
         "description": description,
@@ -201,6 +203,8 @@ def add_product_to_catalog(
         "image": image or "https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=800&q=80",
         "brand": brand or "Jordan"
     }
+    CATALOG[product_id] = product
+    supabase_db.save_product_to_supabase(product)
     return CATALOG[product_id]
 
 
@@ -209,4 +213,5 @@ def update_product_stock(product_id: str, new_stock: int) -> Dict:
     if product_id not in CATALOG:
         raise KeyError(f"Product {product_id} not found in catalog")
     CATALOG[product_id]["stock"] = max(0, int(new_stock))
+    supabase_db.save_product_to_supabase(CATALOG[product_id])
     return CATALOG[product_id]

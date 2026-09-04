@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GST Tax Invoice — KicksVault India</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d0d12;
+      --card-bg: #121216;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --primary: #6366f1;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      margin: 0;
+      padding: 40px 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .invoice-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      max-width: 700px;
+      width: 100%;
+      padding: 40px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 24px;
+      margin-bottom: 24px;
+    }
+    .company-logo {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .company-details, .customer-details {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .invoice-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .meta-box h4 {
+      margin: 0 0 6px;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--primary);
+      letter-spacing: 0.05em;
+    }
+    .meta-box p {
+      margin: 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+    }
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+    td {
+      font-size: 14px;
+    }
+    .total-section {
+      margin-left: auto;
+      max-width: 300px;
+      font-size: 14px;
+    }
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+    }
+    .total-row.grand {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      margin-top: 8px;
+    }
+    .btn-print {
+      display: inline-block;
+      margin-top: 30px;
+      padding: 12px 24px;
+      background: var(--primary);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      transition: opacity 0.2s;
+    }
+    .btn-print:hover {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-card">
+    <div class="header">
+      <div>
+        <div class="company-logo">KicksVault India</div>
+        <div class="company-details" style="margin-top: 8px;">
+          GSTIN: 27AAACK1208D1Z4<br>
+          Bungalow No. 7, Bandra West<br>
+          Mumbai, MH 400050
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <h2 style="margin: 0; color: var(--text);">TAX INVOICE</h2>
+        <div class="company-details" style="margin-top: 8px;">
+          Original for Recipient
+        </div>
+      </div>
+    </div>
+
+    <div class="invoice-meta">
+      <div class="meta-box">
+        <h4>Bill To</h4>
+        <p id="cust-name">Arjun Sharma</p>
+        <div class="customer-details">
+          Phone: <span id="cust-phone">9876543210</span>
+        </div>
+      </div>
+      <div class="meta-box" style="text-align: right;">
+        <h4>Invoice Details</h4>
+        <p>Order ID: <span id="meta-order">order_xxxx</span></p>
+        <p>Payment ID: <span id="meta-payment">pay_xxxx</span></p>
+        <p>Date: <span id="meta-date">--/--/----</span></p>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th style="text-align: right;">Unit Price</th>
+          <th style="text-align: right;">Qty</th>
+          <th style="text-align: right;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td id="prod-name">Sneakers</td>
+          <td id="prod-price" style="text-align: right;">₹0.00</td>
+          <td style="text-align: right;">1</td>
+          <td id="prod-total" style="text-align: right;">₹0.00</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="total-section">
+      <div class="total-row">
+        <span>Subtotal</span>
+        <span id="subtotal">₹0.00</span>
+      </div>
+      <div class="total-row">
+        <span>CGST (9%)</span>
+        <span id="cgst">₹0.00</span>
+      </div>
+      <div class="total-row">
+        <span>SGST (9%)</span>
+        <span id="sgst">₹0.00</span>
+      </div>
+      <div class="total-row grand">
+        <span>Grand Total</span>
+        <span id="grand-total">₹0.00</span>
+      </div>
+    </div>
+
+    <div style="text-align: center;">
+      <a href="#" onclick="window.print(); return false;" class="btn-print">Print GST Tax Invoice</a>
+    </div>
+  </div>
+
+  <script>
+    // Extract query parameters
+    const params = new URLSearchParams(window.location.search);
+    document.getElementById('cust-name').textContent = params.get('name') || 'Arjun Sharma';
+    document.getElementById('cust-phone').textContent = params.get('phone') || '9876543210';
+    document.getElementById('meta-order').textContent = params.get('order_id') || 'order_unknown';
+    document.getElementById('meta-payment').textContent = params.get('payment_id') || 'pay_unknown';
+    document.getElementById('meta-date').textContent = new Date().toLocaleDateString('en-IN');
+
+    // Fetch product details
+    const productId = params.get('product_id') || 'PROD_001';
+    const amount = parseFloat(params.get('amount')) || 0;
+    
+    // CGST + SGST (18% inclusive tax)
+    const basePrice = amount / 1.18;
+    const cgst = basePrice * 0.09;
+    const sgst = basePrice * 0.09;
+
+    document.getElementById('prod-name').textContent = productId === 'grailpass_vip' ? 'KicksVault GrailPass VIP Club Membership' : 'Vault-Authenticated Sneaker (' + productId + ')';
+    document.getElementById('prod-price').textContent = '₹' + basePrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('prod-total').textContent = '₹' + basePrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('subtotal').textContent = '₹' + basePrice.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('cgst').textContent = '₹' + cgst.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('sgst').textContent = '₹' + sgst.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('grand-total').textContent = '₹' + amount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  </script>
+</body>
+</html>

@@ -226,42 +226,69 @@ def sales_node(state: AgentState) -> AgentState:
                         state["negotiation_stage"] = 1
                     break
 
-        prod_id = state.get("selected_product_id")
+    prod_id = state.get("selected_product_id")
 
-        # Stage 3 intent detection: buyer signals immediate purchase
-        closing_price = _detect_closing_price(last_human)
-        is_closing_intent = bool(_CLOSING_INTENT_REGEX.search(last_human))
+    # Check if the user is agreeing to the subscription
+    last_human_lower = last_human.lower() if last_human else ""
+    if prod_id and any(kw in last_human_lower for kw in ["subscribe", "grailpass", "vip club", "join the vip", "join vip", "accept the subscription", "yes, i'll join", "yes, subscribe", "go ahead with vip", "sign me up for vip"]):
+        messages.append(
+            SystemMessage(
+                content=(
+                    "The customer has agreed to join the VIP GrailPass Club. "
+                    "You MUST emit EXACTLY this tag on its own line: "
+                    "[ACTION:CREATE_SUBSCRIPTION | plan: grailpass_vip | price: 299] "
+                    "Then warmly congratulate them and direct them to checkout."
+                )
+            )
+        )
 
-        if prod_id and (closing_price is not None or is_closing_intent) and stage >= 1:
-            state["negotiation_stage"] = 3
-            # Use proposed closing price or fall back to stage-2 midpoint
-            proposed = closing_price if closing_price else get_stage2_price(prod_id)
-            product = get_product(prod_id)
-            # Clamp through guardrails
-            proposal = PaymentProposal(product_id=prod_id, proposed_price=proposed)
-            if proposal.is_below_floor():
-                # Firm refusal – let LLM handle the message
-                state["negotiation_stage"] = 2  # Roll back to stage 2
-            else:
-                final_price = proposal.validate_and_compute_final_price()
-                state["guardrail_triggered"] = final_price != proposed
-                state["product_id"] = prod_id
-                state["agreed_price"] = final_price
-                # Inject instruction for LLM to emit the payment tag
-                messages.append(
-                    SystemMessage(
-                        content=(
-                            f"The buyer has agreed to purchase {product['name']} at ₹{final_price:.2f}. "
-                            f"Emit EXACTLY this tag on its own line: "
-                            f"[ACTION:CREATE_PAYMENT | product_id: {prod_id} | price: {final_price:.2f}] "
-                            f"Then confirm the deal warmly."
-                        )
+    # Stage 3 intent detection: buyer signals immediate purchase
+    closing_price = _detect_closing_price(last_human)
+    is_closing_intent = bool(_CLOSING_INTENT_REGEX.search(last_human))
+
+    if prod_id and (closing_price is not None or is_closing_intent) and stage >= 1:
+        state["negotiation_stage"] = 3
+        # Use proposed closing price or fall back to stage-2 midpoint
+        proposed = closing_price if closing_price else get_stage2_price(prod_id)
+        product = get_product(prod_id)
+        # Clamp through guardrails
+        proposal = PaymentProposal(product_id=prod_id, proposed_price=proposed)
+        if proposal.is_below_floor():
+            # Firm refusal – pitch the KicksVault GrailPass VIP Club subscription (₹299/mo) for instant ₹1,000 credit
+            discounted_price = product["retail_price"] - 1000.0
+            messages.append(
+                SystemMessage(
+                    content=(
+                        f"The buyer bid ₹{proposed:.2f}, which is strictly below the secret floor price of ₹{product['floor_price']:.2f}. "
+                        f"You MUST refuse this low bid politely but firmly. "
+                        f"Immediately pitch the 'KicksVault GrailPass VIP Club' subscription (₹299/mo with UPI Autopay) as the ONLY way to unlock extra discounts. "
+                        f"Explain that by subscribing, they get an instant ₹1,000 credit today, reducing their sneaker purchase price to ₹{discounted_price:.2f}, "
+                        f"plus priority dropping privileges and zero platform fees. "
+                        f"Ask them: 'Would you like to subscribe to the KicksVault GrailPass VIP Club for ₹299/month to unlock your ₹1,000 discount immediately?'"
                     )
                 )
-        elif prod_id and stage == 1:
-            # Transition to stage 2 on buyer pushback
-            if any(kw in last_human.lower() for kw in ["less", "cheaper", "discount", "lower", "too expensive", "reduce", "negotiate", "better price", "₹", "inr"]):
-                state["negotiation_stage"] = 2
+            )
+            state["negotiation_stage"] = 2  # Roll back to stage 2
+        else:
+            final_price = proposal.validate_and_compute_final_price()
+            state["guardrail_triggered"] = final_price != proposed
+            state["product_id"] = prod_id
+            state["agreed_price"] = final_price
+            # Inject instruction for LLM to emit the payment tag
+            messages.append(
+                SystemMessage(
+                    content=(
+                        f"The buyer has agreed to purchase {product['name']} at ₹{final_price:.2f}. "
+                        f"Emit EXACTLY this tag on its own line: "
+                        f"[ACTION:CREATE_PAYMENT | product_id: {prod_id} | price: {final_price:.2f}] "
+                        f"Then confirm the deal warmly."
+                    )
+                )
+            )
+    elif prod_id and stage == 1:
+        # Transition to stage 2 on buyer pushback
+        if any(kw in last_human.lower() for kw in ["less", "cheaper", "discount", "lower", "too expensive", "reduce", "negotiate", "better price", "₹", "inr"]):
+            state["negotiation_stage"] = 2
 
     # Invoke the LLM with fallback handling
     raw_content = ""
@@ -304,13 +331,16 @@ def route_decision(state: AgentState) -> str:
     if not state.get("messages"):
         return "continue"
     last_msg = state["messages"][-1]
-    if isinstance(last_msg, AIMessage) and "[ACTION:CREATE_PAYMENT" in _extract_content_text(last_msg.content):
-        return "payment"
+    content = _extract_content_text(last_msg.content)
+    if isinstance(last_msg, AIMessage):
+        if "[ACTION:CREATE_PAYMENT" in content:
+            return "payment"
+        elif "[ACTION:CREATE_SUBSCRIPTION" in content:
+            return "subscription"
     return "continue"
 
 
 def payment_tool_node(state: AgentState) -> AgentState:
-    """Create a Razorpay payment link and store the order."""
     last_msg = state["messages"][-1]
     last_content = _extract_content_text(last_msg.content)
     tag_match = re.search(
@@ -384,6 +414,23 @@ def payment_tool_node(state: AgentState) -> AgentState:
     return state
 
 
+def subscription_tool_node(state: AgentState) -> AgentState:
+    """Create a subscription tag response."""
+    state["product_id"] = "grailpass_vip"
+    state["agreed_price"] = 299.0
+    state["checkout_url"] = "subscription_checkout"
+    
+    confirmation_msg = (
+        f"🌟 Welcome to the KicksVault GrailPass VIP Club!\n\n"
+        f"**Plan:** KicksVault GrailPass VIP membership\n"
+        f"**Recurring Fee:** ₹299/month\n"
+        f"**Benefits Activated:** Instant ₹1,000 credit on your current pair, free shipping, early drop access.\n\n"
+        f"Please click 'Pay via Razorpay' to authorize your recurring monthly VIP membership (UPI Autopay supported)."
+    )
+    state["messages"].append(AIMessage(content=confirmation_msg))
+    return state
+
+
 def failure_recovery_node(state: AgentState) -> AgentState:
     """Inject a warm recovery message and generate a fresh payment link on payment failure."""
     product_id = state.get("product_id", "PROD_001")
@@ -438,15 +485,17 @@ def failure_recovery_node(state: AgentState) -> AgentState:
 graph = StateGraph(AgentState)
 graph.add_node("sales", sales_node)
 graph.add_node("payment", payment_tool_node)
+graph.add_node("subscription", subscription_tool_node)
 graph.add_node("failure_recovery", failure_recovery_node)
 
 graph.add_conditional_edges(
     "sales",
     route_decision,
-    {"payment": "payment", "continue": END},
+    {"payment": "payment", "subscription": "subscription", "continue": END},
 )
 
 graph.add_edge("payment", END)
+graph.add_edge("subscription", END)
 graph.add_edge("failure_recovery", END)
 
 graph.set_entry_point("sales")

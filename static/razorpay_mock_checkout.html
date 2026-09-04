@@ -150,7 +150,8 @@
   <script>
     // Parse query params
     const params = new URLSearchParams(window.location.search);
-    const orderId = params.get('order_id') || 'order_' + Math.random().toString(36).slice(2,9);
+    const subId = params.get('subscription_id');
+    const orderId = params.get('order_id') || subId || 'order_' + Math.random().toString(36).slice(2,9);
     const productId = params.get('product_id') || 'PROD_001';
     const productName = params.get('product_name') || 'KicksVault Deadstock Grail';
     const amount = params.get('amount') || '24999';
@@ -181,9 +182,16 @@
       const mockPaymentId = 'pay_' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 8);
       const mockSignature = 'sig_' + Math.random().toString(36).slice(2, 14) + Math.random().toString(36).slice(2, 14);
 
-      // Redirect to the real app's callback url
-      const callbackUrl = `/api/razorpay/callback?razorpay_payment_id=${mockPaymentId}&razorpay_payment_link_id=${orderId}&razorpay_payment_link_status=${status === 'success' ? 'paid' : 'failed'}&razorpay_signature=${mockSignature}`;
-      window.location.href = callbackUrl;
+      if (subId) {
+        if (status === 'success') {
+          window.location.href = `/?status=success&subscription_id=${subId}&payment_id=${mockPaymentId}&signature=${mockSignature}&amount=299&product_id=grailpass_vip`;
+        } else {
+          window.location.href = `/?status=failed`;
+        }
+      } else {
+        const callbackUrl = `/api/razorpay/callback?razorpay_payment_id=${mockPaymentId}&razorpay_payment_link_id=${orderId}&razorpay_payment_link_status=${status === 'success' ? 'paid' : 'failed'}&razorpay_signature=${mockSignature}`;
+        window.location.href = callbackUrl;
+      }
     }
 
     lucide.createIcons();

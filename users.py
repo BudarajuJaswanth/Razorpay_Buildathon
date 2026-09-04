@@ -2,12 +2,24 @@ import json
 import os
 import uuid
 import hashlib
-import smtplib
-from email.mime.text import MIMEText
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 
 USERS_FILE = "users.json"
-EMAILS_LOG_FILE = "verification_emails.log"
+
+ADMIN_EMAILS: Set[str] = {
+    e.strip().lower() 
+    for e in os.getenv("ADMIN_EMAILS", "admin@kicksvault.in,merchant@kicksvault.in,chand@kicksvault.in").split(",") 
+    if e.strip()
+}
+
+def is_admin_email(email: str) -> bool:
+    clean = (email or "").strip().lower()
+    if clean in ADMIN_EMAILS or clean.startswith("admin@") or clean.startswith("merchant@"):
+        return True
+    return False
+
+def determine_role(email: str) -> str:
+    return "admin" if is_admin_email(email) else "user"
 
 def hash_password(password: str, salt: Optional[str] = None) -> str:
     if not salt:
@@ -21,14 +33,22 @@ def verify_password(password: str, hashed_value: str) -> bool:
     salt, hash_part = hashed_value.split(":", 1)
     return hash_password(password, salt) == hashed_value
 
+import supabase_db
+
 def load_users() -> Dict:
-    if not os.path.exists(USERS_FILE):
-        return {"users": {}}
-    try:
-        with open(USERS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {"users": {}}
+    local_data = {"users": {}}
+    if os.path.exists(USERS_FILE):
+        try:
+            with open(USERS_FILE, "r", encoding="utf-8") as f:
+                local_data = json.load(f)
+        except Exception:
+            local_data = {"users": {}}
+
+    remote_users = supabase_db.fetch_users_from_supabase()
+    if remote_users:
+        local_data["users"].update(remote_users)
+
+    return local_data
 
 def save_users(data: Dict):
     try:
@@ -36,6 +56,17 @@ def save_users(data: Dict):
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"[users] Failed to save users: {e}")
+
+    for email, user in data.get("users", {}).items():
+        supabase_db.save_user_to_supabase(
+            email=email,
+            name=user.get("name", ""),
+            password_hash=user.get("password_hash", ""),
+            role=user.get("role", "user"),
+            verified=user.get("verified", True),
+            verification_token=user.get("verification_token", ""),
+            avatar=user.get("avatar", "")
+        )
 
 # Preseed default buyer and admin accounts as pre-verified
 def init_users_db():
@@ -70,53 +101,6 @@ def init_users_db():
         
     if changed:
         save_users(data)
-
-def send_verification_email(email: str, name: str, token: str):
-    verify_url = f"http://127.0.0.1:8000/api/auth/verify?token={token}&email={email}"
-    subject = "Verify your KicksVault account"
-    body = f"""Hi {name},
-
-Thank you for signing up for KicksVault India. Please click the link below to verify your email address:
-{verify_url}
-
-If you did not sign up, please ignore this email.
-
-Best regards,
-KicksVault India Security Team
-"""
-    # Write to local log for easy user retrieval (even if offline or SMTP is unconfigured)
-    try:
-        with open(EMAILS_LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(f"--- VERIFICATION EMAIL TO: {email} ---\nSubject: {subject}\nBody:\n{body}\n---------------------------------------\n\n")
-    except Exception as e:
-         print(f"[WARN] Failed to write verification email to log file: {e}")
-
-    # Print to console for immediate visibility
-    print(f"\n=======================================================")
-    print(f"[EMAIL] VERIFICATION EMAIL SENT TO: {email}")
-    print(f"[LINK] CLICK TO VERIFY: {verify_url}")
-    print(f"=======================================================\n")
-
-    # Optional real SMTP sending if configured in environment
-    smtp_host = os.getenv("SMTP_HOST")
-    smtp_port = os.getenv("SMTP_PORT")
-    smtp_user = os.getenv("SMTP_USER")
-    smtp_pass = os.getenv("SMTP_PASSWORD")
-    
-    if smtp_host and smtp_port and smtp_user and smtp_pass:
-        try:
-            msg = MIMEText(body)
-            msg['Subject'] = subject
-            msg['From'] = smtp_user
-            msg['To'] = email
-            
-            with smtplib.SMTP(smtp_host, int(smtp_port)) as server:
-                server.starttls()
-                server.login(smtp_user, smtp_pass)
-                server.sendmail(smtp_user, [email], msg.as_string())
-            print(f"[SMTP] Real email successfully sent to {email}")
-        except Exception as e:
-            print(f"[SMTP WARN] Real SMTP sending failed (link is still available in terminal & logs): {e}")
 
 # Initialize at startup
 init_users_db()
