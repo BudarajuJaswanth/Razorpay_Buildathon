@@ -10,7 +10,7 @@
     },
     "collector@kicksvault.in": {
       "name": "Verified Collector",
-      "password_hash": "5df01173201f4b2a:877843b24ce0c12012cdd134ee811565aec1127541f5573d7c986f8c293a7876",
+      "password_hash": "399c3e1672bc4015:b5379b561bfc54b34b614e25f69e988c5a523150e54f7db14fb39fe1f8ace716",
       "role": "user",
       "verified": true,
       "verification_token": "",
@@ -99,6 +99,22 @@
     "instant_user_1788540450@kicksvault.in": {
       "name": "Instant Collector",
       "password_hash": "ab042a294cf141f0:70b3f705cac2c4cd59c3989a3c5efbec61c2257f43794130710d91975f281266",
+      "role": "user",
+      "verified": true,
+      "verification_token": "",
+      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"
+    },
+    "instant_user_1788541581@kicksvault.in": {
+      "name": "Instant Collector",
+      "password_hash": "8ba5d504afae491d:360385daffb3d6a02bd26652eba262dfcc90f2f56d7e0bfdf36d65597679a4d9",
+      "role": "user",
+      "verified": true,
+      "verification_token": "",
+      "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80"
+    },
+    "instant_user_1788541707@kicksvault.in": {
+      "name": "Instant Collector",
+      "password_hash": "bd7bcd0a1168488c:ad122797f10b70bdd812b1392389fe00d7466e3caf7c9b1ab8e0abcd8b7e589a",
       "role": "user",
       "verified": true,
       "verification_token": "",

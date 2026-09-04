@@ -25,7 +25,8 @@
      AUTHENTICATION MODAL / REGISTER / LOGIN / GOOGLE AUTH
      ============================================================ -->
 <div id="auth-modal" class="auth-overlay" style="display:none">
-  <div class="auth-card" style="max-width:440px;">
+  <div class="auth-card" style="max-width:440px;position:relative">
+    <button id="btn-close-auth" onclick="closeAuthModal(true)" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:var(--text-muted);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;transition:all 0.2s" title="Close Portal">&times;</button>
     <!-- Icon -->
     <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--indigo),var(--indigo-dim));display:flex;align-items:center;justify-content:center;margin:0 auto 16px;box-shadow:var(--shadow-indigo)">
       <i data-lucide="shield-check" style="width:24px;height:24px;color:#fff"></i>
@@ -155,10 +156,6 @@
 
   <!-- Right: User Profile & Controls -->
   <div class="nav-right" style="display:flex;align-items:center;gap:8px">
-    <!-- Quick Storefront toggle for admin -->
-    <button id="btn-toggle-storefront" onclick="showPage('page-storefront')" class="btn btn-secondary btn-sm" style="display:none;font-size:10px;padding:4px 8px;gap:4px">
-      <i data-lucide="shopping-bag" style="width:11px;height:11px"></i> Storefront
-    </button>
 
     <!-- User Profile Pill -->
     <div id="user-profile-pill" class="user-profile-pill" style="cursor:pointer" title="Click to switch account/role">

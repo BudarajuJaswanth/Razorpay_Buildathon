@@ -1108,10 +1108,10 @@ async def get_admin_subscriptions():
         subs = [
             {
                 "subscription_id": "sub_vip_9988112233",
-                "customer_email": "jashubudaraju@gmail.com",
-                "customer_name": "Jashu Budaraju (Admin VIP)",
+                "customer_email": "arjun.sharma@example.com",
+                "customer_name": "Arjun Sharma (VIP Member)",
                 "customer_phone": "+91 98765 43210",
-                "shipping_address": "Hyderabad, Telangana, India",
+                "shipping_address": "Indiranagar, Bengaluru, India",
                 "plan_name": "KicksVault GrailPass VIP Club",
                 "amount": 299.0,
                 "billing_cycle": "Monthly",

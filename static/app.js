@@ -452,8 +452,8 @@ function openAuthModal() {
   if (feedback) feedback.style.display = 'none';
 }
 
-function closeAuthModal() {
-  if (!localStorage.getItem('auth_token')) {
+function closeAuthModal(force = false) {
+  if (!force && !localStorage.getItem('auth_token')) {
     showAuthFeedback('error', 'Please authenticate with Google or email credentials.');
     return;
   }
@@ -467,7 +467,7 @@ function updateAuthUI() {
   const avatarEl = document.getElementById('user-avatar');
   const tabAdmin = document.getElementById('tab-admin');
   const tabChat = document.getElementById('tab-chat');
-  const btnToggleStorefront = document.getElementById('btn-toggle-storefront');
+  const btnVipStatus = document.getElementById('btn-vip-status');
 
   if (currentUser) {
     if (nameEl) nameEl.textContent = currentUser.name.split(' ')[0];
@@ -481,15 +481,18 @@ function updateAuthUI() {
         roleBadge.style.background = 'rgba(251,191,36,0.15)';
         roleBadge.style.color = 'var(--amber)';
         roleBadge.style.border = '1px solid rgba(251,191,36,0.3)';
-        if (btnToggleStorefront) btnToggleStorefront.style.display = 'inline-flex';
       } else {
         roleBadge.textContent = '👤 CUSTOMER';
         roleBadge.className = 'role-badge-user';
         roleBadge.style.background = 'rgba(34,211,238,0.15)';
         roleBadge.style.color = 'var(--cyan)';
         roleBadge.style.border = '1px solid rgba(34,211,238,0.3)';
-        if (btnToggleStorefront) btnToggleStorefront.style.display = 'none';
       }
+    }
+
+    // Hide GrailPass subscription button for Merchant Admin, show for Customer
+    if (btnVipStatus) {
+      btnVipStatus.style.display = isAdmin ? 'none' : 'flex';
     }
 
     if (tabAdmin) tabAdmin.style.display = isAdmin ? 'inline-flex' : 'none';
@@ -523,7 +526,7 @@ function updateAuthUI() {
     }
     if (tabAdmin) tabAdmin.style.display = 'none';
     if (tabChat) tabChat.style.display = 'inline-flex';
-    if (btnToggleStorefront) btnToggleStorefront.style.display = 'none';
+    if (btnVipStatus) btnVipStatus.style.display = 'flex';
   }
 }
 
