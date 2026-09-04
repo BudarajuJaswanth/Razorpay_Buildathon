@@ -218,8 +218,10 @@ document.addEventListener('DOMContentLoaded', () => {
 window.toggleAuthMode = function(mode) {
   const loginForm = document.getElementById('form-email-login');
   const signupForm = document.getElementById('form-email-signup');
+  const resetForm = document.getElementById('form-email-reset');
   const loginTab = document.getElementById('tab-auth-login');
   const signupTab = document.getElementById('tab-auth-signup');
+  const resetTab = document.getElementById('tab-auth-reset');
   const feedback = document.getElementById('auth-feedback-box');
   
   if (feedback) feedback.style.display = 'none';
@@ -227,13 +229,58 @@ window.toggleAuthMode = function(mode) {
   if (mode === 'login') {
     if (loginForm) loginForm.style.display = 'block';
     if (signupForm) signupForm.style.display = 'none';
+    if (resetForm) resetForm.style.display = 'none';
     if (loginTab) { loginTab.style.background = 'var(--surface-2)'; loginTab.style.color = '#fff'; }
     if (signupTab) { signupTab.style.background = 'transparent'; signupTab.style.color = 'var(--text-secondary)'; }
-  } else {
+    if (resetTab) { resetTab.style.background = 'transparent'; resetTab.style.color = 'var(--text-secondary)'; }
+  } else if (mode === 'signup') {
     if (loginForm) loginForm.style.display = 'none';
     if (signupForm) signupForm.style.display = 'block';
+    if (resetForm) resetForm.style.display = 'none';
     if (loginTab) { loginTab.style.background = 'transparent'; loginTab.style.color = 'var(--text-secondary)'; }
     if (signupTab) { signupTab.style.background = 'var(--surface-2)'; signupTab.style.color = '#fff'; }
+    if (resetTab) { resetTab.style.background = 'transparent'; resetTab.style.color = 'var(--text-secondary)'; }
+  } else if (mode === 'reset') {
+    if (loginForm) loginForm.style.display = 'none';
+    if (signupForm) signupForm.style.display = 'none';
+    if (resetForm) resetForm.style.display = 'block';
+    if (loginTab) { loginTab.style.background = 'transparent'; loginTab.style.color = 'var(--text-secondary)'; }
+    if (signupTab) { signupTab.style.background = 'transparent'; signupTab.style.color = 'var(--text-secondary)'; }
+    if (resetTab) { resetTab.style.background = 'var(--surface-2)'; resetTab.style.color = '#fff'; }
+  }
+};
+
+window.handlePasswordReset = async function(e) {
+  e.preventDefault();
+  const email = document.getElementById('reset-email')?.value.trim();
+  const new_password = document.getElementById('reset-password')?.value;
+
+  if (!email || !new_password) return;
+  if (new_password.length < 6) {
+    showAuthFeedback('error', 'New password must be at least 6 characters long.');
+    return;
+  }
+
+  showAuthFeedback('info', 'Resetting password...');
+
+  try {
+    const resp = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, new_password })
+    });
+    const data = await resp.json();
+    if (resp.ok) {
+      showAuthFeedback('success', 'Password reset successfully! Please sign in with your new password.');
+      document.getElementById('form-email-reset').reset();
+      setTimeout(() => {
+        toggleAuthMode('login');
+      }, 1800);
+    } else {
+      showAuthFeedback('error', data.detail || 'Password reset failed.');
+    }
+  } catch (err) {
+    showAuthFeedback('error', `Network error: ${err.message}`);
   }
 };
 

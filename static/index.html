@@ -52,8 +52,9 @@
 
     <!-- Auth Mode Switcher Tabs -->
     <div style="display:flex;gap:4px;background:rgba(255,255,255,0.02);padding:3px;border-radius:8px;margin-bottom:16px">
-      <button id="tab-auth-login" onclick="toggleAuthMode('login')" style="flex:1;padding:8px;border-radius:6px;border:none;font-size:11px;font-weight:700;cursor:pointer;background:var(--surface-2);color:#fff">Sign In</button>
-      <button id="tab-auth-signup" onclick="toggleAuthMode('signup')" style="flex:1;padding:8px;border-radius:6px;border:none;font-size:11px;font-weight:700;cursor:pointer;background:transparent;color:var(--text-secondary)">Create Account</button>
+      <button id="tab-auth-login" onclick="toggleAuthMode('login')" style="flex:1;padding:8px;border-radius:6px;border:none;font-size:10px;font-weight:700;cursor:pointer;background:var(--surface-2);color:#fff">Sign In</button>
+      <button id="tab-auth-signup" onclick="toggleAuthMode('signup')" style="flex:1;padding:8px;border-radius:6px;border:none;font-size:10px;font-weight:700;cursor:pointer;background:transparent;color:var(--text-secondary)">Create Account</button>
+      <button id="tab-auth-reset" onclick="toggleAuthMode('reset')" style="flex:1;padding:8px;border-radius:6px;border:none;font-size:10px;font-weight:700;cursor:pointer;background:transparent;color:var(--text-secondary)">Reset Password</button>
     </div>
 
     <!-- Feedback Message Box -->
@@ -65,8 +66,11 @@
         <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px">EMAIL</label>
         <input type="email" id="login-email" required placeholder="collector@kicksvault.in" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:#fff;outline:none"/>
       </div>
-      <div style="margin-bottom:16px">
-        <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px">PASSWORD</label>
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label style="font-size:9px;font-weight:700;color:var(--text-muted)">PASSWORD</label>
+          <a href="#" onclick="event.preventDefault();toggleAuthMode('reset')" style="font-size:10px;color:var(--indigo-bright);text-decoration:none;font-weight:600">Forgot password?</a>
+        </div>
         <input type="password" id="login-password" required placeholder="••••••••" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:#fff;outline:none"/>
       </div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;font-size:12px">Sign In with Email</button>
@@ -87,6 +91,19 @@
         <input type="password" id="signup-password" required placeholder="Minimum 6 characters" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:#fff;outline:none"/>
       </div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;font-size:12px">Register Account</button>
+    </form>
+
+    <!-- Reset Password Form -->
+    <form id="form-email-reset" onsubmit="handlePasswordReset(event)" style="display:none;text-align:left">
+      <div style="margin-bottom:10px">
+        <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px">REGISTERED EMAIL</label>
+        <input type="email" id="reset-email" required placeholder="collector@kicksvault.in" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:#fff;outline:none"/>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:9px;font-weight:700;color:var(--text-muted);display:block;margin-bottom:4px">NEW PASSWORD</label>
+        <input type="password" id="reset-password" required placeholder="Enter new password" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:12px;color:#fff;outline:none"/>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;font-size:12px">Reset Password Now</button>
     </form>
   </div>
 </div>

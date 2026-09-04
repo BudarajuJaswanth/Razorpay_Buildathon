@@ -485,6 +485,10 @@ class AuthEmailLoginRequest(BaseModel):
     email: str
     password: str
 
+class AuthResetPasswordRequest(BaseModel):
+    email: str
+    new_password: str
+
 class AdminAddProductRequest(BaseModel):
     id: str
     name: str
@@ -605,6 +609,25 @@ async def auth_email_login(req: AuthEmailLoginRequest):
             "email": email,
             "avatar": user["avatar"]
         }
+    }
+
+# Reset Password Endpoint
+@app.post("/api/auth/reset-password")
+async def auth_reset_password(req: AuthResetPasswordRequest):
+    data = users.load_users()
+    email = req.email.strip().lower()
+    user = data["users"].get(email)
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="No registered account found with this email address.")
+        
+    user["password_hash"] = users.hash_password(req.new_password)
+    user["verified"] = True
+    users.save_users(data)
+    
+    return {
+        "status": "success",
+        "message": "Password reset successfully! You can now log in with your new password."
     }
 
 

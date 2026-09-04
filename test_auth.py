@@ -106,6 +106,22 @@ def test_vip_subscription_endpoints():
     assert admin_data["status"] == "success"
     assert "subscriptions" in admin_data
 
+def test_reset_password_endpoint():
+    reset_res = client.post("/api/auth/reset-password", json={
+        "email": "collector@kicksvault.in",
+        "new_password": "newcollectorpassword123"
+    })
+    assert reset_res.status_code == 200
+    assert reset_res.json()["status"] == "success"
+
+    # Verify login with new password
+    login_res = client.post("/api/auth/login", json={
+        "email": "collector@kicksvault.in",
+        "password": "newcollectorpassword123"
+    })
+    assert login_res.status_code == 200
+    assert login_res.json()["status"] == "success"
+
 def test_demo_login_endpoint_removed():
     res = client.post("/api/auth/demo-login", json={"role": "admin"})
     assert res.status_code in [404, 405]
